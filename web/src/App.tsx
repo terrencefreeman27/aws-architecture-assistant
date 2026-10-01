@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { computeCompleteness } from '../../shared/requirements';
 import { EMPTY_REQUIREMENTS, type PlanResponse, type Requirements } from '../../shared/schema';
 import { getScenario } from '../../shared/scenarios';
-import { decodeRequirements, readShareHash } from '../../shared/share';
+import { planToMarkdown, reportFileName } from '../../shared/report';
+import { buildShareUrl, decodeRequirements, readShareHash } from '../../shared/share';
 import { PlanningApiError } from './api';
 import { AssistantPanel } from './AssistantPanel';
 import { DiagramCanvas } from './DiagramCanvas';
+import { downloadText } from './download';
 import { PlanDetails } from './PlanDetails';
 import { planWith, plannerEnv, plannerLabel, resolvePlannerMode, type PlannerMode } from './planner';
 import { RequirementsPanel } from './RequirementsPanel';
@@ -114,6 +116,20 @@ export function App() {
   };
 
   const plan = response?.kind === 'plan' ? response : null;
+
+  /** The report describes the plan on screen, so it uses the requirements that plan was generated from. */
+  const downloadReport = async () => {
+    if (!plan) return;
+    const reqs = generatedFor ?? requirements;
+    let shareUrl: string | undefined;
+    try {
+      shareUrl = await buildShareUrl(window.location.href, reqs);
+    } catch {
+      shareUrl = undefined;
+    }
+    const markdown = planToMarkdown({ plan: plan.plan, mermaid: plan.mermaid, requirements: reqs, generatedAt: plan.generatedAt, provider: plan.provider, shareUrl });
+    downloadText(reportFileName(plan.plan.title), markdown, 'text/markdown;charset=utf-8');
+  };
   const stale = Boolean(plan) && JSON.stringify(generatedFor) !== JSON.stringify(requirements);
 
   return (
@@ -154,6 +170,11 @@ export function App() {
               </span>
             )}
             {plan && <CopyLinkButton share={share} />}
+            {plan && (
+              <button type="button" className="btn-secondary" onClick={() => void downloadReport()} data-testid="download-report" title="Markdown design document with the diagram, plan, and cited sources. Generated in your browser.">
+                Download report (.md)
+              </button>
+            )}
             {plan && (
               <button type="button" className="btn-primary" onClick={() => void generate()} disabled={loading}>
                 {loading ? 'Regenerating...' : 'Regenerate'}
