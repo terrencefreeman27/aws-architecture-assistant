@@ -71,6 +71,7 @@ a { color: var(--link); }
 
 .side-heading { font-size: 13px; font-weight: 700; color: var(--navy-text); }
 .side-section { display: flex; flex-direction: column; gap: 8px; }
+.side-note { font-size: 12px; color: var(--navy-muted); margin-top: -4px; }
 
 .scenario-list { display: grid; gap: 6px; }
 .scenario {
@@ -149,7 +150,8 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 /* ---------- Workspace ---------- */
 .workspace { padding: 20px 24px 32px; display: flex; flex-direction: column; gap: 16px; }
 .workspace-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
-.workspace-head h2 { font-size: 19px; font-weight: 700; }
+.workspace-head h2 { font-size: 19px; font-weight: 700; scroll-margin-top: 12px; }
+.workspace-head h2:focus:not(:focus-visible) { outline: none; }
 .head-badges { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .mode-badge { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #e3e8ef; color: var(--text-2); }
 .mode-badge.is-demo { background: var(--accent-soft); color: #8a4b00; }

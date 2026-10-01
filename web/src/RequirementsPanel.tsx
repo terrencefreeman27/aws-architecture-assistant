@@ -38,7 +38,8 @@ export function RequirementsPanel({ requirements, onChange, onLoadScenario, onGe
       </header>
 
       <section className="side-section">
-        <h2 className="side-heading">Start from a sample</h2>
+        <h2 className="side-heading">Try a sample</h2>
+        <p className="side-note">One click fills in the form and draws the plan.</p>
         <div className="scenario-list">
           {SCENARIOS.map((s) => (
             <button

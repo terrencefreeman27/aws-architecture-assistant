@@ -15,6 +15,19 @@ import { RequirementsPanel } from './RequirementsPanel';
 import { CopyLinkButton, ShareFallback, useShareLink } from './ShareLink';
 import { loadAutosave, saveAutosave } from './storage';
 
+/** Matches the single-column layout in styles.css, where the plan sits below the requirements form. */
+export const NARROW_QUERY = '(max-width: 760px)';
+const isNarrow = () => typeof window !== 'undefined' && window.matchMedia(NARROW_QUERY).matches;
+
+/** Brings the plan heading into view and moves focus to it (used on narrow screens, where the plan is below the form). */
+function revealPlan() {
+  const heading = document.getElementById('plan-heading');
+  if (!heading) return;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  heading.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  heading.focus({ preventScroll: true });
+}
+
 function clearHash() {
   try {
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
@@ -50,7 +63,11 @@ export function App() {
     return local;
   };
 
-  const generate = async (req: Requirements = requirements, forced?: PlannerMode) => {
+  /** Set when the next completed generation should scroll to the plan (narrow screens only). */
+  const revealPending = useRef(false);
+
+  const generate = async (req: Requirements = requirements, { forced, reveal = false }: { forced?: PlannerMode; reveal?: boolean } = {}) => {
+    revealPending.current = reveal && isNarrow();
     setLoading(true);
     setRequestError('');
     setApiFailed(false);
@@ -108,12 +125,20 @@ export function App() {
     if (hydrated.current) saveAutosave(requirements);
   }, [requirements]);
 
+  // After a generation that asked to be revealed, wait for the new plan (or questions) to render, then scroll to it.
+  useEffect(() => {
+    if (!revealPending.current || loading) return;
+    revealPending.current = false;
+    const frame = window.requestAnimationFrame(revealPlan);
+    return () => window.cancelAnimationFrame(frame);
+  }, [response, loading]);
+
   const loadScenario = (id: string) => {
     const scenario = getScenario(id);
     if (!scenario) return;
     setRequirements(scenario.requirements);
     setActiveScenario(id);
-    void generate(scenario.requirements);
+    void generate(scenario.requirements, { reveal: true });
   };
 
   const plan = response?.kind === 'plan' ? response : null;
@@ -154,7 +179,9 @@ export function App() {
       <main className="workspace">
         <header className="workspace-head">
           <div>
-            <h2>{plan ? plan.plan.title : 'Architecture plan'}</h2>
+            <h2 id="plan-heading" tabIndex={-1}>
+              {plan ? plan.plan.title : 'Architecture plan'}
+            </h2>
             <p className="muted">
               {plan
                 ? `${plan.plan.nodes.filter((n) => n.kind === 'aws').length} AWS components from the supported catalog. Generated ${new Date(plan.generatedAt).toLocaleTimeString()}.`
@@ -224,7 +251,7 @@ export function App() {
         response={response}
         stale={stale}
         requestError={requestError}
-        onUseLocalPlanner={apiFailed ? () => void generate(requirements, switchToLocalPlanner()) : undefined}
+        onUseLocalPlanner={apiFailed ? () => void generate(requirements, { forced: switchToLocalPlanner() }) : undefined}
       />
     </div>
   );
