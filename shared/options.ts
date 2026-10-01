@@ -28,9 +28,9 @@ export const REGION_NAMES: Record<(typeof REGIONS)[number], string> = {
 
 const BASE_OPTIONS: Partial<Record<RequirementField, Option[]>> = {
   workloadType: [
-    { value: 'web_app', label: 'A website or app people sign in to or browse' },
-    { value: 'integration', label: 'Moving data between systems we already use' },
-    { value: 'ai_assistant', label: 'An AI assistant that answers from our documents' },
+    { value: 'web_app', label: 'A website or web app' },
+    { value: 'integration', label: 'Moving data between existing systems' },
+    { value: 'ai_assistant', label: 'An AI assistant for our documents' },
     { value: 'other', label: 'Something else' },
   ],
   expectedUsage: [
@@ -43,14 +43,14 @@ const BASE_OPTIONS: Partial<Record<RequirementField, Option[]>> = {
     { value: 'public', label: 'Public: anyone may see it' },
     { value: 'internal', label: 'Internal: staff only' },
     { value: 'confidential', label: 'Confidential: customer or business data' },
-    { value: 'regulated', label: 'Regulated: health, payment, or government data' },
+    { value: 'regulated', label: 'Regulated: health, payment, government' },
   ],
   region: REGIONS.map((r) => ({ value: r, label: `${REGION_NAMES[r]} · ${r}` })),
   availability: [
-    { value: 'best_effort', label: 'Downtime is fine now and then (best effort)' },
-    { value: 'business_hours', label: 'Must work during business hours' },
-    { value: 'high', label: 'Should stay up nearly all the time (high availability)' },
-    { value: 'mission_critical', label: 'Downtime would be serious harm (mission critical)' },
+    { value: 'best_effort', label: 'Some downtime is fine (best effort)' },
+    { value: 'business_hours', label: 'Up during business hours' },
+    { value: 'high', label: 'Almost always up (high availability)' },
+    { value: 'mission_critical', label: 'Outages do real harm (mission critical)' },
   ],
   budget: [
     { value: 'minimal', label: 'Keep costs as low as possible' },
@@ -60,7 +60,7 @@ const BASE_OPTIONS: Partial<Record<RequirementField, Option[]>> = {
   operations: [
     { value: 'small_team', label: 'Small team: let AWS manage the servers' },
     { value: 'ops_team', label: 'We have a dedicated operations team' },
-    { value: 'containers', label: 'Our team already uses containers (e.g. Docker)' },
+    { value: 'containers', label: 'We already use containers (Docker etc.)' },
   ],
 };
 
