@@ -13,7 +13,7 @@ interface Props {
   onUseLocalPlanner?: () => void;
 }
 
-const fieldLabel = (field?: string) => (field && field in FIELD_META ? FIELD_META[field as RequirementField].label : '');
+const fieldLabel = (field?: string) => (field && field in FIELD_META ? FIELD_META[field as RequirementField].short : '');
 
 export function AssistantPanel({ response, stale, requestError, onUseLocalPlanner }: Props) {
   return (

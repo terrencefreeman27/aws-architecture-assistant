@@ -1,70 +1,99 @@
 import type { Completeness, FollowUpQuestion, RequirementField, Requirements } from './schema';
 
 export interface FieldMeta {
+  /** Plain-language label shown on the form, written for someone who knows the business but not AWS. */
   label: string;
+  /** Short name for compact lists ("Missing: ...", "Edit: ..."). */
+  short: string;
+  /** The precise AWS term, shown as a secondary hint next to the label. */
+  term?: string;
   question: string;
   why: string;
 }
 
 export const FIELD_META: Record<RequirementField, FieldMeta> = {
   description: {
-    label: 'System description',
-    question: 'In a sentence or two, what should the system do and for whom?',
-    why: 'The purpose decides which architecture pattern is a reasonable starting point.',
+    label: 'What should the system do?',
+    short: 'Description',
+    question: 'In a sentence or two: what should it do, who uses it, and what information does it handle?',
+    why: 'The purpose decides which kind of design is a reasonable starting point.',
   },
   workloadType: {
-    label: 'Closest pattern',
-    question: 'Which pattern is closest: a web application, an integration between existing systems, or an AI knowledge assistant?',
-    why: 'Demo mode builds plans from three reviewed patterns.',
+    label: 'What kind of system is it?',
+    short: 'Kind of system',
+    term: 'closest pattern',
+    question:
+      'Which is closest: a website or app people use, a connection that moves data between systems you already have, or an AI assistant that answers questions from your documents?',
+    why: 'Demo mode builds plans from three reviewed designs, so it needs to know which one fits.',
   },
   existingSystems: {
-    label: 'Existing systems and tools',
-    question: 'Which existing systems must this connect to (for example a CRM, an ERP, an on-premises database, or a document store)? List the source first.',
-    why: 'Integrations need to know what talks to what, and whether anything lives on-premises.',
+    label: 'Which existing systems does it connect to?',
+    short: 'Existing systems',
+    question:
+      'For example a CRM, an accounting or ERP system, a database in your own building, or a document store. When moving data between systems, list where the data comes from first.',
+    why: 'Connections need to know what talks to what, and whether anything runs in your own building rather than online.',
   },
   expectedUsage: {
-    label: 'Expected usage',
-    question: 'How much usage do you expect: low, moderate, high, or spiky (quiet with sudden bursts)?',
-    why: 'Usage shape drives the choice between pay-per-request serverless and always-on capacity.',
+    label: 'How busy will it be?',
+    short: 'How busy',
+    term: 'expected usage',
+    question: 'Light and steady, moderate, heavy all day, or quiet with sudden bursts?',
+    why: 'How busy it is decides between services you pay for per use and capacity that is always running.',
   },
   usageNotes: {
-    label: 'Usage details',
-    question: 'Any numbers you know, such as users, requests per day, or data volume?',
-    why: 'Numbers let reviewers check scaling and cost assumptions.',
+    label: 'Any numbers you know?',
+    short: 'Usage numbers',
+    question: 'For example how many people use it, orders or requests per day, or how much data it stores.',
+    why: 'Numbers let reviewers check whether the design will cope and what will drive cost.',
   },
   dataSensitivity: {
-    label: 'Data sensitivity',
-    question: 'How sensitive is the data: public, internal, confidential, or regulated (for example health or payment data)?',
-    why: 'Sensitivity decides authentication, encryption, and audit requirements.',
+    label: 'How sensitive is the data?',
+    short: 'Data sensitivity',
+    question:
+      'Who would be harmed if it leaked? Public information, internal staff-only data, confidential customer or business data, or regulated data such as health or payment records.',
+    why: 'Sensitivity decides sign-in, encryption, and audit-trail requirements.',
   },
   region: {
-    label: 'AWS Region',
-    question: 'Which AWS Region should this run in? Pick the one closest to your users or required by data-residency rules.',
-    why: 'Region affects latency, data residency, and which services and models are available.',
+    label: 'Where are most of your users?',
+    short: 'User location',
+    term: 'AWS Region',
+    question: 'The plan runs in the AWS location closest to them, unless rules require the data to stay in a particular country.',
+    why: 'Location affects speed for users, where the data is stored, and which services are available.',
   },
   availability: {
-    label: 'Availability and recovery',
-    question: 'How available must it be: best effort, business hours, high availability, or mission critical?',
-    why: 'Availability targets decide Multi-AZ, backup, and disaster-recovery design.',
+    label: 'How much downtime is acceptable?',
+    short: 'Downtime',
+    term: 'availability and recovery',
+    question: 'If it stopped working for an hour, what would happen? This decides how much backup and redundancy the plan includes.',
+    why: 'The answer decides whether the design keeps running when one data center fails, and how backups and recovery work.',
   },
   recoveryNotes: {
-    label: 'Recovery targets',
-    question: 'Do you have recovery targets, such as how much data you can afford to lose (RPO) and how long you can be down (RTO)?',
-    why: 'Recovery objectives pick the disaster-recovery strategy.',
+    label: 'After a serious failure, how much data could you lose, and for how long could it be down?',
+    short: 'Recovery targets',
+    term: 'RPO and RTO',
+    question:
+      'For example "we can lose at most 15 minutes of orders and must be back within 4 hours". The first is called the recovery point objective (RPO), the second the recovery time objective (RTO).',
+    why: 'These two targets pick the disaster-recovery strategy.',
   },
   budget: {
-    label: 'Budget posture',
-    question: 'What is the budget posture: minimal, moderate, or flexible?',
-    why: 'Budget decides whether to favour scale-to-zero services or always-on capacity.',
+    label: 'How should cost be balanced against other goals?',
+    short: 'Cost balance',
+    term: 'budget',
+    question: 'Keep costs as low as possible, balance cost with other goals, or spend more for speed and simplicity?',
+    why: 'This decides whether to favour services that cost almost nothing when idle or capacity that is always on.',
   },
   operations: {
-    label: 'Operational constraints',
-    question: 'Who will run this: a small team that wants fully managed services, a dedicated ops team, or a team already standardised on containers?',
-    why: 'Operational capacity decides how much infrastructure the team can realistically own.',
+    label: 'Who will look after it day to day?',
+    short: 'Who runs it',
+    term: 'operations',
+    question:
+      'A small team that wants AWS to handle the servers, a dedicated operations team, or a team that already packages its software in containers (for example Docker)?',
+    why: 'How much the team can look after decides how much infrastructure the design can ask them to own.',
   },
   operationsNotes: {
-    label: 'Other constraints',
-    question: 'Any other constraints, such as required tools, deadlines, or skills on the team?',
+    label: 'Anything else we should know?',
+    short: 'Other constraints',
+    question: 'For example required tools, deadlines, or skills on the team.',
     why: 'Constraints can rule out otherwise reasonable options.',
   },
 };

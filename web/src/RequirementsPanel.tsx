@@ -1,5 +1,5 @@
 import { FIELD_META, computeCompleteness, requiredFields } from '../../shared/requirements';
-import { REGIONS, type RequirementField, type Requirements } from '../../shared/schema';
+import { type RequirementField, type Requirements } from '../../shared/schema';
 import { SCENARIOS } from '../../shared/scenarios';
 import { SELECT_OPTIONS } from './options';
 
@@ -13,13 +13,13 @@ interface Props {
   loading: boolean;
 }
 
-type FieldKind = 'textarea' | 'text' | 'select' | 'region';
+type FieldKind = 'textarea' | 'text' | 'select';
 
 const GROUPS: { title: string; fields: [RequirementField, FieldKind][] }[] = [
   { title: 'The system', fields: [['description', 'textarea'], ['workloadType', 'select'], ['existingSystems', 'textarea']] },
-  { title: 'Usage and data', fields: [['expectedUsage', 'select'], ['usageNotes', 'text'], ['dataSensitivity', 'select'], ['region', 'region']] },
-  { title: 'Resilience and cost', fields: [['availability', 'select'], ['recoveryNotes', 'text'], ['budget', 'select']] },
-  { title: 'Operations', fields: [['operations', 'select'], ['operationsNotes', 'text']] },
+  { title: 'Usage and data', fields: [['expectedUsage', 'select'], ['usageNotes', 'text'], ['dataSensitivity', 'select'], ['region', 'select']] },
+  { title: 'Downtime and cost', fields: [['availability', 'select'], ['recoveryNotes', 'text'], ['budget', 'select']] },
+  { title: 'Running it', fields: [['operations', 'select'], ['operationsNotes', 'text']] },
 ];
 
 export function RequirementsPanel({ requirements, onChange, onLoadScenario, onGenerate, onReset, activeScenario, loading }: Props) {
@@ -74,7 +74,7 @@ export function RequirementsPanel({ requirements, onChange, onLoadScenario, onGe
           <span style={{ width: `${completeness.percent}%` }} />
         </div>
         {completeness.missing.length > 0 ? (
-          <p className="meter-note">Missing: {completeness.missing.map((f) => FIELD_META[f].label).join(', ')}</p>
+          <p className="meter-note">Missing: {completeness.missing.map((f) => FIELD_META[f].short).join(', ')}</p>
         ) : (
           <p className="meter-note is-done">Enough to draft a plan. Optional details sharpen it.</p>
         )}
@@ -98,16 +98,19 @@ export function RequirementsPanel({ requirements, onChange, onLoadScenario, onGe
               return (
                 <div className={`field${missing ? ' is-missing' : ''}`} key={field}>
                   <label htmlFor={id}>
-                    {meta.label}
+                    <span className="label-text">
+                      {meta.label}
+                      {meta.term && <span className="term"> ({meta.term})</span>}
+                    </span>
                     <span className={isReq ? 'req-tag' : 'opt-tag'}>{isReq ? 'required' : 'optional'}</span>
                   </label>
                   {kind === 'textarea' && (
-                    <textarea id={id} rows={field === 'description' ? 4 : 2} value={requirements[field]} onChange={(e) => set(field, e.target.value)} />
+                    <textarea id={id} aria-describedby={`${id}-hint`} rows={field === 'description' ? 4 : 2} value={requirements[field]} onChange={(e) => set(field, e.target.value)} />
                   )}
-                  {kind === 'text' && <input id={id} type="text" value={requirements[field]} onChange={(e) => set(field, e.target.value)} />}
+                  {kind === 'text' && <input id={id} aria-describedby={`${id}-hint`} type="text" value={requirements[field]} onChange={(e) => set(field, e.target.value)} />}
                   {kind === 'select' && (
-                    <select id={id} value={requirements[field]} onChange={(e) => set(field, e.target.value)}>
-                      <option value="">Not answered</option>
+                    <select id={id} aria-describedby={`${id}-hint`} value={requirements[field]} onChange={(e) => set(field, e.target.value)}>
+                      <option value="">Choose...</option>
                       {SELECT_OPTIONS[field]?.map((o) => (
                         <option key={o.value} value={o.value}>
                           {o.label}
@@ -115,17 +118,9 @@ export function RequirementsPanel({ requirements, onChange, onLoadScenario, onGe
                       ))}
                     </select>
                   )}
-                  {kind === 'region' && (
-                    <select id={id} value={requirements.region} onChange={(e) => set(field, e.target.value)}>
-                      <option value="">Not sure yet</option>
-                      {REGIONS.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  <p className="hint">{meta.question}</p>
+                  <p className="hint" id={`${id}-hint`}>
+                    {meta.question}
+                  </p>
                 </div>
               );
             })}

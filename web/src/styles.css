@@ -105,7 +105,8 @@ a { color: var(--link); }
 }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field label { font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; gap: 8px; }
-.req-tag, .opt-tag { font-size: 11px; font-weight: 500; color: var(--navy-muted); }
+.req-tag, .opt-tag { flex: none; font-size: 11px; font-weight: 500; color: var(--navy-muted); }
+.term { font-weight: 400; color: var(--navy-muted); }
 .field.is-missing .req-tag { color: #ffb84d; }
 .field input, .field select, .field textarea {
   width: 100%;

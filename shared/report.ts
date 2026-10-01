@@ -120,7 +120,10 @@ export function planToMarkdown(input: ReportInput): string {
 
   out.push('## Requirements as entered');
   blank();
-  for (const field of REQUIREMENT_ORDER) out.push(`- **${FIELD_META[field].label}:** ${requirementValue(field, requirements[field])}`);
+  for (const field of REQUIREMENT_ORDER) {
+    const meta = FIELD_META[field];
+    out.push(`- **${meta.label}${meta.term ? ` (${meta.term})` : ''}** ${requirementValue(field, requirements[field])}`);
+  }
   blank();
 
   out.push('## Architecture diagram');
@@ -149,7 +152,7 @@ export function planToMarkdown(input: ReportInput): string {
   blank();
   if (plan.assumptions.length === 0) out.push('_None recorded._');
   for (const a of plan.assumptions) {
-    const field = a.field && a.field in FIELD_META ? ` _Change this in: ${FIELD_META[a.field as RequirementField].label}._` : '';
+    const field = a.field && a.field in FIELD_META ? ` _Change this in: ${FIELD_META[a.field as RequirementField].short}._` : '';
     out.push(`- ${mdText(a.text)}${field}`);
   }
   blank();

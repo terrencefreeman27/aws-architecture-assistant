@@ -129,16 +129,16 @@ function addCrossCutting(b: PlanBuilder, req: Requirements, statefulDb: boolean)
   if (req.recoveryNotes.trim()) {
     b.assumptions.push({ text: `Recovery targets taken from your notes: "${req.recoveryNotes.trim()}". The design has not been verified against them.`, field: 'recoveryNotes' });
   } else {
-    b.openQuestions.push('What are the recovery point objective (RPO) and recovery time objective (RTO)? They decide the disaster-recovery strategy.');
+    b.openQuestions.push('After a serious failure, how much recent data could you afford to lose, and how long could the system be down? These recovery targets (the recovery point objective, RPO, and recovery time objective, RTO) decide the disaster-recovery strategy.');
     b.assumptions.push({
       text:
         avail >= 2
-          ? 'No RPO/RTO given; assumed that Multi-AZ resilience within one Region plus backups is acceptable.'
-          : 'No RPO/RTO given; assumed that restoring from backups within hours is acceptable.',
+          ? 'No recovery targets given (how much data you could lose and how long you could be down, known as RPO and RTO). Assumed that surviving the loss of one data center (Multi-AZ, within one Region) plus backups is acceptable.'
+          : 'No recovery targets given (how much data you could lose and how long you could be down, known as RPO and RTO). Assumed that restoring from backups within hours is acceptable.',
       field: 'recoveryNotes',
     });
   }
-  b.cite('reliability', 'Choose a disaster-recovery strategy (backup and restore, pilot light, warm standby, or multi-site) from agreed RPO/RTO targets.', 'wp-disaster-recovery');
+  b.cite('reliability', 'Choose a disaster-recovery strategy (backup and restore, pilot light, warm standby, or multi-site) from agreed recovery targets: how much data you can afford to lose (RPO) and how long you can be down (RTO).', 'wp-disaster-recovery');
 
   if (!req.usageNotes.trim()) {
     b.openQuestions.push('Roughly how many users, requests per day, or GB of data do you expect at launch and at peak?');
