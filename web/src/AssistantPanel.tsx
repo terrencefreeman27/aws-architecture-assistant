@@ -73,8 +73,8 @@ export function AssistantPanel({ response, stale, requestError, onUseLocalPlanne
         const cautions = response.kind === 'plan' ? response.plan.cautions : response.cautions;
         if (cautions.length === 0) return null;
         return (
-          <section className="block">
-            <h3>Not answered with confidence</h3>
+          <section className="block" id="section-cautions">
+            <h3 tabIndex={-1}>Not answered with confidence</h3>
             <ul className="cautions">
               {cautions.map((c) => (
                 <li key={c.topic}>
@@ -99,8 +99,8 @@ export function AssistantPanel({ response, stale, requestError, onUseLocalPlanne
             <p>{response.plan.summary}</p>
           </section>
 
-          <section className="block">
-            <h3>Assumptions</h3>
+          <section className="block" id="section-assumptions">
+            <h3 tabIndex={-1}>Assumptions</h3>
             <p className="muted">Correct any that are wrong, then regenerate.</p>
             <ul className="assumptions">
               {response.plan.assumptions.map((a, i) => (
@@ -117,8 +117,8 @@ export function AssistantPanel({ response, stale, requestError, onUseLocalPlanne
           </section>
 
           {response.plan.openQuestions.length > 0 && (
-            <section className="block">
-              <h3>Open questions</h3>
+            <section className="block" id="section-open-questions">
+              <h3 tabIndex={-1}>Open questions</h3>
               <ul className="plain">
                 {response.plan.openQuestions.map((q) => (
                   <li key={q}>{q}</li>

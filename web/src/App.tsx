@@ -9,7 +9,8 @@ import { PlanningApiError } from './api';
 import { AssistantPanel } from './AssistantPanel';
 import { DiagramCanvas } from './DiagramCanvas';
 import { downloadText } from './download';
-import { PlanDetails } from './PlanDetails';
+import { PlanDetails, tabId, type PlanTab } from './PlanDetails';
+import { PlanSummary, type SummaryTarget } from './PlanSummary';
 import { planWith, plannerEnv, plannerLabel, resolvePlannerMode, type PlannerMode } from './planner';
 import { RequirementsPanel } from './RequirementsPanel';
 import { CopyLinkButton, ShareFallback, useShareLink } from './ShareLink';
@@ -26,6 +27,19 @@ function revealPlan() {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   heading.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   heading.focus({ preventScroll: true });
+}
+
+const scrollBehavior = (): ScrollBehavior => (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
+
+/** Scrolls a plan section into view, focuses it, and briefly highlights it so the jump is easy to follow. */
+function jumpTo(container: HTMLElement | null, focusTarget: HTMLElement | null) {
+  if (!container || !focusTarget) return;
+  container.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
+  focusTarget.focus({ preventScroll: true });
+  container.classList.remove('is-flash');
+  void container.offsetWidth; // restart the highlight if the same item is chosen twice
+  container.classList.add('is-flash');
+  window.setTimeout(() => container.classList.remove('is-flash'), 1400);
 }
 
 function clearHash() {
@@ -46,6 +60,7 @@ export function App() {
   const [apiFailed, setApiFailed] = useState(false);
   const [mode, setMode] = useState<PlannerMode | null>(null);
   const [linkNotice, setLinkNotice] = useState('');
+  const [tab, setTab] = useState<PlanTab>('Components');
   const booted = useRef(false);
   const hydrated = useRef(false);
   const share = useShareLink(requirements);
@@ -157,6 +172,17 @@ export function App() {
     const markdown = planToMarkdown({ plan: plan.plan, mermaid: plan.mermaid, requirements: reqs, generatedAt: plan.generatedAt, provider: plan.provider, shareUrl });
     downloadText(reportFileName(plan.plan.title), markdown, 'text/markdown;charset=utf-8');
   };
+  const jump = (target: SummaryTarget) => {
+    if ('tab' in target) {
+      setTab(target.tab);
+      // Wait for the tab to render before moving focus to it.
+      window.requestAnimationFrame(() => jumpTo(document.getElementById('plan-details'), document.getElementById(tabId(target.tab))));
+    } else {
+      const section = document.getElementById(`section-${target.section}`);
+      jumpTo(section, section?.querySelector('h3') ?? null);
+    }
+  };
+
   const stale = Boolean(plan) && JSON.stringify(generatedFor) !== JSON.stringify(requirements);
 
   return (
@@ -229,8 +255,9 @@ export function App() {
           </div>
         ) : plan ? (
           <div className={`plan-area${loading ? ' is-loading' : ''}`}>
+            <PlanSummary plan={plan.plan} onJump={jump} />
             <DiagramCanvas iconSource={iconSource} portableSource={plan.mermaid} title={plan.plan.title} />
-            <PlanDetails plan={plan.plan} />
+            <PlanDetails plan={plan.plan} tab={tab} onTabChange={setTab} />
             <p className="disclaimer">
               This plan is a reviewable starting point generated from your stated requirements. It is not production-ready, does not establish compliance, and contains no cost figures. Validate it with your team and a Well-Architected review.
             </p>

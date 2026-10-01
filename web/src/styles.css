@@ -198,6 +198,22 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .skeleton-row { height: 180px; }
 @keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 
+/* ---------- Plan summary bar ---------- */
+.plan-summary ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.summary-item {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+  padding: 5px 12px; font-size: 13px; font-weight: 600; color: var(--text-2); cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.summary-item:hover { border-color: var(--accent-strong); background: var(--accent-soft); }
+.summary-count { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); }
+.is-flash { animation: flash 1.4s ease; }
+@keyframes flash { 0%, 40% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: 0 0 0 3px transparent; } }
+.block { scroll-margin-top: 16px; border-radius: var(--radius-ctl); }
+.block h3:focus:not(:focus-visible) { outline: none; }
+.details-card { scroll-margin-top: 16px; }
+
 /* ---------- Details ---------- */
 .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); padding: 0 8px; overflow-x: auto; }
 .tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 11px 12px 9px; font-size: 13.5px; font-weight: 600; color: var(--muted); cursor: pointer; white-space: nowrap; }
