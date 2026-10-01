@@ -8,7 +8,7 @@ export interface FieldMeta {
 
 export const FIELD_META: Record<RequirementField, FieldMeta> = {
   description: {
-    label: 'What are you building?',
+    label: 'System description',
     question: 'In a sentence or two, what should the system do and for whom?',
     why: 'The purpose decides which architecture pattern is a reasonable starting point.',
   },

@@ -40,7 +40,7 @@ a { color: var(--link); }
 /* ---------- Layout ---------- */
 .workbench {
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr) 360px;
+  grid-template-columns: 320px minmax(0, 1fr) 340px;
   height: 100dvh;
 }
 .sidebar, .workspace, .assistant { overflow-y: auto; min-height: 0; }
@@ -170,15 +170,16 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .canvas {
   padding: 16px;
   min-height: 420px;
+  max-height: 72vh;
   overflow: auto;
   background-color: #fbfcfd;
   background-image: radial-gradient(#dfe4ea 1px, transparent 1px);
   background-size: 18px 18px;
-  display: flex;
-  justify-content: center;
 }
-.canvas svg { max-width: 100%; height: auto; }
-.canvas-loading { align-items: center; color: var(--muted); font-size: 13px; }
+/* Actual size by default so labels stay readable; scroll to pan. */
+.canvas svg { display: block; margin: 0 auto; width: var(--diagram-width, 100%) !important; max-width: none !important; height: auto; }
+.canvas.is-fit svg { width: 100% !important; max-width: var(--diagram-width, 100%) !important; }
+.canvas-loading { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; }
 .canvas-error { padding: 24px; color: var(--error); background: var(--error-bg); }
 .canvas-foot { font-size: 12px; color: var(--muted); padding: 8px 14px 10px; border-top: 1px solid var(--border); }
 .mermaid-source { margin: 0; padding: 12px 14px; background: #f6f7f9; border-top: 1px solid var(--border); font-size: 12px; overflow: auto; max-height: 260px; }
@@ -244,7 +245,8 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .cautions, .assumptions, .plain, .sources { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 13px; color: var(--text-2); }
 .cautions { list-style: none; padding: 0; }
 .cautions li { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 8px 10px; border-radius: 0 var(--radius-ctl) var(--radius-ctl) 0; }
-.assumptions li { display: grid; gap: 2px; }
+.assumptions { list-style: none; padding: 0; }
+.assumptions li { display: grid; gap: 2px; padding-left: 10px; border-left: 2px solid var(--border); }
 .sources a { word-break: break-word; }
 .callout { font-size: 13px; padding: 10px 12px; border-radius: var(--radius-ctl); }
 .callout.is-error { background: var(--error-bg); color: var(--error); }

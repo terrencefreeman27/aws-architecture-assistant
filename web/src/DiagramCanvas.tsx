@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 
 interface Props {
   source: string;
@@ -39,6 +39,8 @@ export function DiagramCanvas({ source, title }: Props) {
   const [svg, setSvg] = useState('');
   const [error, setError] = useState('');
   const [showSource, setShowSource] = useState(false);
+  const [fit, setFit] = useState(true);
+  const [naturalWidth, setNaturalWidth] = useState(0);
   const counter = useRef(0);
 
   useEffect(() => {
@@ -48,7 +50,11 @@ export function DiagramCanvas({ source, title }: Props) {
     loadMermaid()
       .then((mermaid) => mermaid.render(renderId, source))
       .then(({ svg: out }) => {
-        if (!cancelled) setSvg(out);
+        if (cancelled) return;
+        // Mermaid records the diagram's natural width as an inline max-width.
+        const match = /max-width:\s*([\d.]+)px/.exec(out);
+        setNaturalWidth(match ? Math.ceil(Number(match[1])) : 0);
+        setSvg(out);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -79,6 +85,9 @@ export function DiagramCanvas({ source, title }: Props) {
       <div className="canvas-toolbar">
         <span className="canvas-label">Architecture diagram</span>
         <div className="toolbar-actions">
+          <button type="button" className="btn-quiet" onClick={() => setFit((v) => !v)} aria-pressed={fit} disabled={!svg}>
+            {fit ? 'Actual size' : 'Fit to width'}
+          </button>
           <button type="button" className="btn-quiet" onClick={() => setShowSource((v) => !v)} aria-expanded={showSource}>
             {showSource ? 'Hide source' : 'Mermaid source'}
           </button>
@@ -92,7 +101,12 @@ export function DiagramCanvas({ source, title }: Props) {
           The diagram failed to render: {error}
         </div>
       ) : svg ? (
-        <div className="canvas" data-testid="diagram" dangerouslySetInnerHTML={{ __html: svg }} />
+        <div
+          className={`canvas${fit ? ' is-fit' : ''}`}
+          data-testid="diagram"
+          style={naturalWidth ? ({ '--diagram-width': `${naturalWidth}px` } as CSSProperties) : undefined}
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
       ) : (
         <div className="canvas canvas-loading" aria-busy="true">
           Rendering diagram...

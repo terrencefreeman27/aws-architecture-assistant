@@ -18,6 +18,7 @@ export function SourceChips({ ids }: { ids: string[] }) {
 function shortTitle(title: string): string {
   return title
     .replace(/^What (is|Is) /, '')
+    .replace(/^(an?|the) /i, '')
     .replace(/\?$/, '')
     .replace(' - AWS Well-Architected Framework', ' (WA)')
     .replace(/^Overview - /, '');

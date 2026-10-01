@@ -1,4 +1,4 @@
-import { TIERS, type Plan, type PlanNode } from './schema';
+import type { Plan, PlanNode } from './schema';
 
 /**
  * Mermaid source is generated only from validated plan data. Labels are
@@ -14,18 +14,6 @@ export function sanitizeLabel(value: string, max = 60): string {
   return clipped || 'Unnamed';
 }
 
-const TIER_TITLES: Record<(typeof TIERS)[number], string> = {
-  users: 'Users',
-  edge: 'Edge and delivery',
-  app: 'Application',
-  integration: 'Integration',
-  ai: 'AI services',
-  data: 'Data',
-  security: 'Security and identity',
-  operations: 'Operations',
-  external: 'Existing systems',
-};
-
 /** Prefix node ids so validated ids can never collide with Mermaid keywords such as "end". */
 export const mermaidId = (id: string) => `n_${id}`;
 
@@ -38,24 +26,40 @@ function shape(node: PlanNode): string {
   return `${id}[${label}]`;
 }
 
+/** Max cross-cutting nodes per column before starting a new column. */
+const CROSS_CUTTING_COLUMN = 3;
+
+/**
+ * Layout: top-to-bottom flow of connected components (no tier subgraphs, which
+ * force very wide layouts), plus one compact "Cross-cutting services" group for
+ * components with no connections (IAM, KMS, monitoring, backup). Those are
+ * stacked into short columns with invisible links so they do not widen the
+ * diagram.
+ */
 export function toMermaid(plan: Pick<Plan, 'nodes' | 'connections'>): string {
-  const lines: string[] = ['flowchart LR'];
-
-  for (const tier of TIERS) {
-    const members = plan.nodes.filter((n) => n.tier === tier);
-    if (members.length === 0) continue;
-    lines.push(`  subgraph tier_${tier}["${TIER_TITLES[tier]}"]`);
-    lines.push('    direction TB');
-    for (const node of members) lines.push(`    ${shape(node)}`);
-    lines.push('  end');
-  }
-
   const ids = new Set(plan.nodes.map((n) => n.id));
-  for (const conn of plan.connections) {
-    if (!ids.has(conn.from) || !ids.has(conn.to)) continue; // validation guarantees this; defensive only
+  const connections = plan.connections.filter((c) => ids.has(c.from) && ids.has(c.to)); // validation guarantees this; defensive only
+  const linked = new Set(connections.flatMap((c) => [c.from, c.to]));
+  const flowNodes = plan.nodes.filter((n) => linked.has(n.id));
+  const crossCutting = plan.nodes.filter((n) => !linked.has(n.id));
+
+  const lines: string[] = ['flowchart TB'];
+  for (const node of flowNodes) lines.push(`  ${shape(node)}`);
+
+  for (const conn of connections) {
     const label = conn.label ? sanitizeLabel(conn.label, 40) : '';
     const arrow = label ? `-->|"${label}"|` : '-->';
     lines.push(`  ${mermaidId(conn.from)} ${arrow} ${mermaidId(conn.to)}`);
+  }
+
+  if (crossCutting.length > 0) {
+    lines.push('  subgraph cross_cutting["Cross-cutting services"]');
+    for (const node of crossCutting) lines.push(`    ${shape(node)}`);
+    for (let i = 0; i < crossCutting.length; i += CROSS_CUTTING_COLUMN) {
+      const column = crossCutting.slice(i, i + CROSS_CUTTING_COLUMN).map((n) => mermaidId(n.id));
+      if (column.length > 1) lines.push(`    ${column.join(' ~~~ ')}`);
+    }
+    lines.push('  end');
   }
 
   lines.push('  classDef aws fill:#ffffff,stroke:#ff9900,stroke-width:2px,color:#16191f');

@@ -68,7 +68,7 @@ export function App() {
             <h2>{plan ? plan.plan.title : 'Architecture plan'}</h2>
             <p className="muted">
               {plan
-                ? `${plan.plan.nodes.length} components. Generated ${new Date(plan.generatedAt).toLocaleTimeString()}.`
+                ? `${plan.plan.nodes.filter((n) => n.kind === 'aws').length} AWS components from the supported catalog. Generated ${new Date(plan.generatedAt).toLocaleTimeString()}.`
                 : 'A diagram and plan appear here once the requirements are complete.'}
             </p>
           </div>

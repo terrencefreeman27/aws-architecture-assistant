@@ -101,7 +101,7 @@ export function AssistantPanel({ response, stale, requestError }: Props) {
                   <span>{a.text}</span>
                   {a.field && fieldLabel(a.field) && (
                     <button type="button" className="link-btn" onClick={() => focusField(a.field!)}>
-                      Edit {fieldLabel(a.field).toLowerCase()}
+                      Edit: {fieldLabel(a.field)}
                     </button>
                   )}
                 </li>
