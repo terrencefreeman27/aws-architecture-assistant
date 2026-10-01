@@ -54,14 +54,52 @@ npm run dev:web      # Vite dev server on port 5180, proxies /api to 4080
 
 Ports can be changed with `API_PORT` and `WEB_PORT` (both read by the API and by `vite.config.ts`). The web server uses `strictPort`, so it fails instead of silently moving to another port.
 
-Production build of the front end: `npm run build` (output in `dist/`), then `npm run preview` with the API running.
+Production build of the front end: `npm run build` (output in repo-root `dist/`). The built site runs the demo planner in the browser and needs no API (see [Deployment](#deployment-static-site-demo-planner-in-the-browser)).
+
+### Which planner runs
+
+The UI shows a badge with the planner that produced the plan on screen: **Demo planner (runs in your browser)** or **Server API (provider: demo / anthropic)**.
+
+| `VITE_PLANNER` | Where | Behaviour |
+| --- | --- | --- |
+| unset (default) | production build (`npm run build`) | In-browser demo planner. No `/api` requests are made. |
+| unset (default) | dev server (`npm run dev`) | Probes `/api/health`; uses the API if it answers, otherwise falls back to the in-browser demo planner. |
+| `local` | anywhere | Always the in-browser demo planner. |
+| `api` | anywhere | Always the server API. If it cannot be reached, the UI says so and offers a one-click switch to the in-browser demo planner; it never swaps silently. |
+
+The in-browser planner runs exactly the same code path as `POST /api/plan` (`planFromInput` in `shared/service.ts`: schema check, completeness gate, guardrails, `DemoProvider`, validation, Mermaid). Tests assert both paths return identical results for the three samples.
+
+To use `npm run preview` against the API, build with `VITE_PLANNER=api npm run build`.
+
+## Deployment (static site, demo planner in the browser)
+
+The public demo is a static Vite build hosted on Vercel; pushes to `main` auto-deploy. There is no server on Vercel: no `api/` directory and no serverless functions. All planning in the deployed site happens in the browser with the deterministic demo planner, the bundled catalog, the sources registry, and the sample scenarios.
+
+Vercel settings (the auto-detected **Vite** preset works as-is, so there is no `vercel.json`):
+
+- Build command: `npm run build` (runs `vite build`)
+- Output directory: `dist` (Vite's root is `web/`, but `outDir: '../dist'` writes to the repo-root `dist/`, which is the preset's default)
+- Install command: `npm install`
+- No environment variables. Leave `VITE_PLANNER` unset (or set it to `local`). Never set `VITE_PLANNER=api` there, and never add `ANTHROPIC_API_KEY`: the static site has no server to use it.
+- No SPA rewrites are needed: the app is a single page with no client-side routes.
+
+The optional live Anthropic provider is **server-only** and is available only when you run the API locally (`npm run dev` with `MODEL_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` in `.env`). The client bundle never includes the Anthropic SDK or reads that key; `tests/bundle.test.ts` builds the bundle and fails if it does.
+
+To check a production build the way Vercel serves it (no `/api`):
+
+```bash
+npm run build
+cd dist && python3 -m http.server 4321      # any plain static server works
+# in another terminal:
+E2E_URL=http://localhost:4321/ E2E_EXPECT_PLANNER=local npm run e2e
+```
 
 ## Tests
 
 ```bash
 npm run typecheck    # tsc --noEmit over shared, server, web, and tests
-npm test             # vitest: 70 unit and API tests, no network access, no model calls
-npm run e2e          # browser checks + screenshots; requires `npm run dev` to be running
+npm test             # vitest: 89 unit, API, client-planner, and bundle tests; no network access, no model calls
+npm run e2e          # browser checks + screenshots against a running instance (dev server or static build)
 ```
 
 `npm test` covers:
@@ -73,14 +111,16 @@ npm run e2e          # browser checks + screenshots; requires `npm run dev` to b
 - **Citations:** every source id cited by every demo plan, across all 1,728 combinations of the main requirement options, exists in the curated registry; all registry URLs are official `docs.aws.amazon.com` pages.
 - **Diagrams render:** generated Mermaid for every sample parses with Mermaid itself (jsdom), including labels containing hostile text.
 - **Determinism and editability:** the same input always produces the same plan, and changing operations, sensitivity, availability, Region, existing systems, or document type changes the plan.
+- **Client/server parity:** the in-browser planner returns the same validated plan as `POST /api/plan` for all three samples, and the same questions and schema errors for incomplete or malformed input. Planner mode selection is covered for every `VITE_PLANNER` / dev / production combination.
+- **No secrets in the bundle:** a real `vite build` is checked for the Anthropic SDK, `ANTHROPIC_API_KEY`, the Anthropic API host, and the live provider's prompt.
 
-`npm run e2e` (`scripts/e2e-screenshots.mjs`) drives Chromium through `playwright-core` against the running dev servers. It loads each sample, edits requirements and regenerates, exports the SVG, checks the follow-up-question path and guardrails, checks for horizontal overflow at 1440, 1024, and 390 px, fails on console errors, and writes screenshots to `docs/screenshots/`. It uses a locally installed Playwright Chromium build (revision 1243, matching `playwright-core@1.63.0`); run `npx playwright@1.63.0 install chromium` if you do not have one.
+`npm run e2e` (`scripts/e2e-screenshots.mjs`) drives Chromium through `playwright-core` against a running instance (`E2E_URL`, default the dev server). With `E2E_EXPECT_PLANNER=local` it also asserts the planner badge and that no `/api` request is made. It loads each sample, edits requirements and regenerates, exports the SVG, checks the follow-up-question path and guardrails, checks for horizontal overflow at 1440, 1024, and 390 px, fails on console errors, and writes screenshots to `docs/screenshots/`. It uses a locally installed Playwright Chromium build (revision 1243, matching `playwright-core@1.63.0`); run `npx playwright@1.63.0 install chromium` if you do not have one.
 
 ## Optional live provider (off by default)
 
 The model provider sits behind a small interface (`shared/provider.ts`). Demo mode uses `DemoProvider`, a deterministic rules-and-templates engine. An optional Anthropic Claude provider exists in `server/providers/anthropic.ts`:
 
-- It runs only on the server. The browser never sees a key.
+- It runs only on the server. The browser never sees a key, and it is not part of the deployed static site.
 - It is used only when **both** `MODEL_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` are set in the API server's environment (or in a local `.env`, which is git-ignored). Otherwise the server logs a note and stays in demo mode.
 - It requests structured output matching the same Zod schema, and its output goes through the same validation, catalog check, citation check, and guardrails as demo output.
 - It has **not** been exercised against the live API in this MVP, and tests never call it. Using it costs money on your Anthropic account.
@@ -107,12 +147,14 @@ cp .env.example .env    # then set MODEL_PROVIDER=anthropic and ANTHROPIC_API_KE
 - **Citations point to overview pages.** Sources support the general practice cited, not every detail of your specific design.
 - **Source links can change.** URLs were verified on 2026-10-01; AWS may move pages later.
 - **Diagram layout is automatic.** Large plans can be tall; use "Actual size" and scroll, or export the SVG.
-- **No persistence or auth.** Requirements live in the browser tab; refresh clears them. Intended for local use only.
+- **No persistence or auth.** Requirements live in the browser tab; refresh clears them.
+- **The deployed site is demo-only.** The public Vercel site runs only the rules-based demo planner in your browser. The live Claude provider needs the local server and your own API key; it is not hosted.
+- **Large client bundle.** Mermaid ships to the browser; its diagram types are split into chunks that load on demand, so the first visit downloads more JavaScript than the app itself needs.
 
 ## Project layout
 
 ```
-shared/            Logic shared by API, UI, and tests
+shared/            Logic shared by API, UI, and tests (browser-safe: no Node-only imports)
   schema.ts        Zod schemas for requirements, plans, and API responses
   catalog.ts       Supported AWS component catalog
   sources.ts       Curated, verified official AWS source registry
@@ -122,10 +164,10 @@ shared/            Logic shared by API, UI, and tests
   demoProvider.ts  Deterministic demo provider (templates + rules)
   validate.ts      Plan validation: schema, diagram integrity, catalog, citations
   mermaid.ts       Mermaid generation from validated data, with label sanitizing
-  service.ts       Pipeline: completeness -> guardrails -> provider -> validation -> Mermaid
+  service.ts       Pipeline: schema check -> completeness -> guardrails -> provider -> validation -> Mermaid
   scenarios.ts     The three sample scenarios
 server/            Express API (port 4080) and optional Anthropic provider
-web/               React + Vite workbench (port 5180)
+web/               React + Vite workbench (port 5180); src/planner.ts picks in-browser vs API planner
 tests/             Vitest unit and API tests
 scripts/           Browser e2e + screenshot script
 docs/screenshots/  Screenshots captured by `npm run e2e`

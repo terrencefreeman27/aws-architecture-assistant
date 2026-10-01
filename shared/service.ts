@@ -2,7 +2,7 @@ import { detectCautions, mergeCautions } from './guardrails';
 import { toMermaid } from './mermaid';
 import type { ArchitectureProvider } from './provider';
 import { computeCompleteness, followUpQuestions } from './requirements';
-import type { PlanResponse, Requirements } from './schema';
+import { RequirementsSchema, type PlanResponse, type Requirements } from './schema';
 import { validatePlan } from './validate';
 
 /**
@@ -50,4 +50,30 @@ export async function planFromRequirements(req: Requirements, provider: Architec
     warnings: result.warnings,
     generatedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Entry point for untrusted input (an HTTP body or browser form state):
+ * schema-check the requirements, then run the shared pipeline. Used by both
+ * the Express route and the in-browser demo planner so the two stay identical.
+ * `status` mirrors the HTTP status the API returns for the same input.
+ */
+export async function planFromInput(
+  input: unknown,
+  provider: ArchitectureProvider,
+): Promise<{ status: number; body: PlanResponse }> {
+  const parsed = RequirementsSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      status: 400,
+      body: {
+        kind: 'error',
+        provider: provider.name,
+        message: 'Requirements failed validation.',
+        issues: parsed.error.issues.map((i) => ({ code: 'schema', message: i.message, path: i.path.join('.') })),
+      },
+    };
+  }
+  const body = await planFromRequirements(parsed.data, provider);
+  return { status: body.kind === 'error' ? 422 : 200, body };
 }

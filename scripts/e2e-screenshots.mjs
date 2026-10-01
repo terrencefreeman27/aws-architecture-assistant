@@ -1,11 +1,15 @@
-// Browser check + screenshots against a running local dev instance.
+// Browser check + screenshots against a running local instance.
 // Usage: start `npm run dev` (or API + web separately), then `npm run e2e`.
+// Static/production check: `npm run build`, serve dist/ with any static server
+// (no /api), then `E2E_URL=http://localhost:PORT/ E2E_EXPECT_PLANNER=local npm run e2e`.
 // Uses playwright-core with an already-installed Chromium (no download).
 import { chromium } from 'playwright-core';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const BASE = process.env.E2E_URL ?? 'http://localhost:5180/';
+// Optional: 'local' (in-browser demo planner, and no /api requests at all) or 'api'.
+const EXPECT_PLANNER = process.env.E2E_EXPECT_PLANNER;
 const OUT = fileURLToPath(new URL('../docs/screenshots/', import.meta.url));
 await mkdir(OUT, { recursive: true });
 
@@ -17,12 +21,14 @@ const check = (cond, msg) => {
 
 const browser = await chromium.launch();
 const consoleErrors = [];
+const apiRequests = [];
 
 async function newPage(width, height) {
   const ctx = await browser.newContext({ viewport: { width, height }, acceptDownloads: true });
   const page = await ctx.newPage();
   page.on('console', (m) => m.type() === 'error' && consoleErrors.push(m.text()));
   page.on('pageerror', (e) => consoleErrors.push(e.message));
+  page.on('request', (r) => new URL(r.url()).pathname.startsWith('/api') && apiRequests.push(r.url()));
   await page.goto(BASE, { waitUntil: 'networkidle' });
   return page;
 }
@@ -49,6 +55,10 @@ try {
   /* ---------------- Desktop 1440 ---------------- */
   const page = await newPage(1440, 900);
   check((await page.getByText('No plan yet').count()) === 1, 'empty state shown before any plan');
+  const badge = await page.getByTestId('planner-mode').innerText({ timeout: 10000 });
+  console.log(`      planner badge: "${badge}"`);
+  if (EXPECT_PLANNER === 'local') check(badge === 'Demo planner (runs in your browser)', 'planner badge says the demo planner runs in the browser');
+  if (EXPECT_PLANNER === 'api') check(badge.startsWith('Server API'), 'planner badge says the server API is used');
   await page.screenshot({ path: OUT + '01-empty-desktop-1440.png' });
 
   for (const [name, file, marker] of [
@@ -143,6 +153,7 @@ try {
   await browser.close();
 }
 
+if (EXPECT_PLANNER === 'local') check(apiRequests.length === 0, `no /api requests in local mode${apiRequests.length ? `: ${apiRequests.join(', ')}` : ''}`);
 check(consoleErrors.length === 0, `no console errors${consoleErrors.length ? `: ${consoleErrors.join(' | ')}` : ''}`);
 console.log(failures.length ? `\n${failures.length} check(s) failed` : '\nAll browser checks passed');
 process.exit(failures.length ? 1 : 0);

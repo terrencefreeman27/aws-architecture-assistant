@@ -9,18 +9,25 @@ interface Props {
   response: PlanResponse | null;
   stale: boolean;
   requestError: string;
+  /** Offered when the server API failed: switch to the in-browser demo planner and retry. */
+  onUseLocalPlanner?: () => void;
 }
 
 const fieldLabel = (field?: string) => (field && field in FIELD_META ? FIELD_META[field as RequirementField].label : '');
 
-export function AssistantPanel({ response, stale, requestError }: Props) {
+export function AssistantPanel({ response, stale, requestError, onUseLocalPlanner }: Props) {
   return (
     <aside className="assistant" aria-label="Assistant">
       <h2 className="panel-title">Assistant</h2>
 
       {requestError && (
         <div className="callout is-error" role="alert">
-          {requestError}
+          <p>{requestError}</p>
+          {onUseLocalPlanner && (
+            <button type="button" className="btn-secondary" onClick={onUseLocalPlanner}>
+              Use the in-browser demo planner
+            </button>
+          )}
         </div>
       )}
 

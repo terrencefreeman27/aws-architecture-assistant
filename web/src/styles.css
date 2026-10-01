@@ -250,6 +250,8 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .sources a { word-break: break-word; }
 .callout { font-size: 13px; padding: 10px 12px; border-radius: var(--radius-ctl); }
 .callout.is-error { background: var(--error-bg); color: var(--error); }
+.callout.is-error p { margin: 0; }
+.callout.is-error .btn-secondary { margin-top: 8px; }
 .callout.is-error ul { margin: 6px 0 0; padding-left: 18px; }
 .callout.is-stale { background: var(--stale-bg); color: #7a4a00; border: 1px solid #f5d38a; }
 

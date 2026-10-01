@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { EMPTY_REQUIREMENTS, type PlanResponse, type Requirements } from '../../shared/schema';
 import { getScenario } from '../../shared/scenarios';
-import { fetchHealth, requestPlan } from './api';
+import { PlanningApiError } from './api';
 import { AssistantPanel } from './AssistantPanel';
 import { DiagramCanvas } from './DiagramCanvas';
 import { PlanDetails } from './PlanDetails';
+import { planWith, plannerEnv, plannerLabel, resolvePlannerMode, type PlannerMode } from './planner';
 import { RequirementsPanel } from './RequirementsPanel';
 
 export function App() {
@@ -14,21 +15,33 @@ export function App() {
   const [loading, setLoading] = useState(false);
   const [requestError, setRequestError] = useState('');
   const [activeScenario, setActiveScenario] = useState<string | null>(null);
-  const [provider, setProvider] = useState<{ provider: string; demo: boolean } | null>(null);
+  const [apiFailed, setApiFailed] = useState(false);
+  const [mode, setMode] = useState<PlannerMode | null>(null);
+  const modeRef = useRef<Promise<PlannerMode> | null>(null);
+  const getMode = () => (modeRef.current ??= resolvePlannerMode(plannerEnv));
 
   useEffect(() => {
-    fetchHealth().then(setProvider);
+    void getMode().then(setMode);
   }, []);
 
-  const generate = async (req: Requirements = requirements) => {
+  const switchToLocalPlanner = () => {
+    const local: PlannerMode = { kind: 'local' };
+    modeRef.current = Promise.resolve(local);
+    setMode(local);
+    return local;
+  };
+
+  const generate = async (req: Requirements = requirements, forced?: PlannerMode) => {
     setLoading(true);
     setRequestError('');
+    setApiFailed(false);
     try {
-      const result = await requestPlan(req);
+      const result = await planWith(forced ?? (await getMode()), req);
       setResponse(result);
       setGeneratedFor(JSON.stringify(req));
     } catch (err) {
-      setRequestError(err instanceof Error ? err.message : 'Could not reach the API.');
+      setApiFailed(err instanceof PlanningApiError);
+      setRequestError(err instanceof Error ? err.message : 'The planner failed unexpectedly.');
     } finally {
       setLoading(false);
     }
@@ -73,9 +86,13 @@ export function App() {
             </p>
           </div>
           <div className="head-badges">
-            {provider && (
-              <span className={`mode-badge${provider.demo ? ' is-demo' : ''}`}>
-                {provider.demo ? 'Demo mode: rules-based, no credentials' : `Live provider: ${provider.provider}`}
+            {mode && (
+              <span
+                className={`mode-badge${mode.kind === 'local' || mode.demo ? ' is-demo' : ''}`}
+                data-testid="planner-mode"
+                title={mode.kind === 'local' ? 'Rules-based demo planner. No server, no credentials, nothing leaves your browser.' : 'Plans come from the local API server.'}
+              >
+                {plannerLabel(mode)}
               </span>
             )}
             {plan && (
@@ -111,7 +128,12 @@ export function App() {
         )}
       </main>
 
-      <AssistantPanel response={response} stale={stale} requestError={requestError} />
+      <AssistantPanel
+        response={response}
+        stale={stale}
+        requestError={requestError}
+        onUseLocalPlanner={apiFailed ? () => void generate(requirements, switchToLocalPlanner()) : undefined}
+      />
     </div>
   );
 }

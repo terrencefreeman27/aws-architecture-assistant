@@ -2,9 +2,8 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { CATALOG } from '../shared/catalog';
 import { DemoProvider } from '../shared/demoProvider';
 import type { ArchitectureProvider } from '../shared/provider';
-import { RequirementsSchema } from '../shared/schema';
 import { SCENARIOS } from '../shared/scenarios';
-import { planFromRequirements } from '../shared/service';
+import { planFromInput } from '../shared/service';
 import { SOURCES } from '../shared/sources';
 
 export interface ProviderSelection {
@@ -40,18 +39,8 @@ export function createApp(provider: ArchitectureProvider) {
   app.get('/api/scenarios', (_req, res) => res.json(SCENARIOS));
 
   app.post('/api/plan', async (req, res) => {
-    const parsed = RequirementsSchema.safeParse(req.body?.requirements);
-    if (!parsed.success) {
-      res.status(400).json({
-        kind: 'error',
-        provider: provider.name,
-        message: 'Requirements failed validation.',
-        issues: parsed.error.issues.map((i) => ({ code: 'schema', message: i.message, path: i.path.join('.') })),
-      });
-      return;
-    }
-    const result = await planFromRequirements(parsed.data, provider);
-    res.status(result.kind === 'error' ? 422 : 200).json(result);
+    const { status, body } = await planFromInput(req.body?.requirements, provider);
+    res.status(status).json(body);
   });
 
   app.use('/api', (_req, res) => res.status(404).json({ message: 'Not found' }));
