@@ -11,6 +11,7 @@ import { DiagramCanvas } from './DiagramCanvas';
 import { downloadText } from './download';
 import { PlanDetails, tabId, type PlanTab } from './PlanDetails';
 import { PlanSummary, type SummaryTarget } from './PlanSummary';
+import { StartPanel } from './StartPanel';
 import { planWith, plannerEnv, plannerLabel, resolvePlannerMode, type PlannerMode } from './planner';
 import { RequirementsPanel } from './RequirementsPanel';
 import { CopyLinkButton, ShareFallback, useShareLink } from './ShareLink';
@@ -287,15 +288,13 @@ export function App() {
               This plan is a reviewable starting point generated from your stated requirements. It is not production-ready, does not establish compliance, and contains no cost figures. Validate it with your team and a Well-Architected review.
             </p>
           </div>
-        ) : (
+        ) : response?.kind === 'questions' ? (
           <div className="canvas-empty">
             <h3>No plan yet</h3>
-            <p>
-              {response?.kind === 'questions'
-                ? 'The assistant needs a few more answers before it can recommend an architecture. See the questions on the right.'
-                : 'Load a sample scenario or fill in the requirements, then generate a plan.'}
-            </p>
+            <p>The assistant needs a few more answers before it can recommend an architecture. See the questions in the Assistant panel.</p>
           </div>
+        ) : (
+          <StartPanel onLoadScenario={loadScenario} loading={loading} />
         )}
       </main>
 
