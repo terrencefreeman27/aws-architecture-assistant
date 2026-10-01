@@ -15,10 +15,7 @@ import { planWith, plannerEnv, plannerLabel, resolvePlannerMode, type PlannerMod
 import { RequirementsPanel } from './RequirementsPanel';
 import { CopyLinkButton, ShareFallback, useShareLink } from './ShareLink';
 import { loadAutosave, saveAutosave } from './storage';
-
-/** Matches the single-column layout in styles.css, where the plan sits below the requirements form. */
-export const NARROW_QUERY = '(max-width: 760px)';
-const isNarrow = () => typeof window !== 'undefined' && window.matchMedia(NARROW_QUERY).matches;
+import { EXPAND_REQUIREMENTS_EVENT, isNarrow } from './options';
 
 /** Brings the plan heading into view and moves focus to it (used on narrow screens, where the plan is below the form). */
 function revealPlan() {
@@ -61,6 +58,7 @@ export function App() {
   const [mode, setMode] = useState<PlannerMode | null>(null);
   const [linkNotice, setLinkNotice] = useState('');
   const [tab, setTab] = useState<PlanTab>('Components');
+  const [collapsed, setCollapsed] = useState(false);
   const booted = useRef(false);
   const hydrated = useRef(false);
   const share = useShareLink(requirements);
@@ -112,7 +110,7 @@ export function App() {
     setLinkNotice('');
     setRequirements(result.requirements);
     setActiveScenario(null);
-    void generate(result.requirements);
+    void generate(result.requirements, { reveal: true });
     return true;
   };
 
@@ -125,7 +123,7 @@ export function App() {
           const saved = loadAutosave();
           if (saved) {
             setRequirements(saved);
-            if (computeCompleteness(saved).missing.length === 0) void generate(saved);
+            if (computeCompleteness(saved).missing.length === 0) void generate(saved, { reveal: true });
           }
         }
         hydrated.current = true;
@@ -140,13 +138,37 @@ export function App() {
     if (hydrated.current) saveAutosave(requirements);
   }, [requirements]);
 
-  // After a generation that asked to be revealed, wait for the new plan (or questions) to render, then scroll to it.
+  // After a generation that asked to be revealed (narrow screens), fold the form away if a plan came back,
+  // then scroll to the result once it has rendered. Questions keep the form open so they can be answered.
+  const [revealTick, setRevealTick] = useState(0);
   useEffect(() => {
     if (!revealPending.current || loading) return;
     revealPending.current = false;
+    if (response?.kind === 'plan') setCollapsed(true);
+    setRevealTick((n) => n + 1);
+  }, [response, loading]);
+  // Runs after the collapsed layout has committed, so the scroll target is where it will stay.
+  useEffect(() => {
+    if (revealTick === 0) return;
     const frame = window.requestAnimationFrame(revealPlan);
     return () => window.cancelAnimationFrame(frame);
-  }, [response, loading]);
+  }, [revealTick]);
+
+  // "Edit" and "Answer in" links elsewhere in the app open the form before focusing a field.
+  useEffect(() => {
+    const open = () => setCollapsed(false);
+    window.addEventListener(EXPAND_REQUIREMENTS_EVENT, open);
+    return () => window.removeEventListener(EXPAND_REQUIREMENTS_EVENT, open);
+  }, []);
+
+  const expandRequirements = () => {
+    setCollapsed(false);
+    window.requestAnimationFrame(() => {
+      const heading = document.getElementById('requirements-heading');
+      heading?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
+      heading?.focus({ preventScroll: true });
+    });
+  };
 
   const loadScenario = (id: string) => {
     const scenario = getScenario(id);
@@ -191,15 +213,18 @@ export function App() {
         requirements={requirements}
         onChange={setRequirements}
         onLoadScenario={loadScenario}
-        onGenerate={() => void generate()}
+        onGenerate={() => void generate(requirements, { reveal: true })}
         onReset={() => {
           setRequirements(EMPTY_REQUIREMENTS);
+          setCollapsed(false);
           setResponse(null);
           setActiveScenario(null);
           setRequestError('');
         }}
         activeScenario={activeScenario}
         loading={loading}
+        collapsed={collapsed}
+        onExpand={expandRequirements}
       />
 
       <main className="workspace">
@@ -231,7 +256,7 @@ export function App() {
               </button>
             )}
             {plan && (
-              <button type="button" className="btn-primary" onClick={() => void generate()} disabled={loading}>
+              <button type="button" className="btn-primary head-regenerate" onClick={() => void generate()} disabled={loading}>
                 {loading ? 'Regenerating...' : 'Regenerate'}
               </button>
             )}
@@ -280,6 +305,18 @@ export function App() {
         requestError={requestError}
         onUseLocalPlanner={apiFailed ? () => void generate(requirements, { forced: switchToLocalPlanner() }) : undefined}
       />
+
+      {/* Narrow screens only (see styles.css): the main action stays within thumb reach. */}
+      <div className="mobile-actions" data-testid="mobile-actions">
+        {collapsed && (
+          <button type="button" className="btn-secondary" onClick={expandRequirements} aria-controls="requirements-body" aria-expanded={false}>
+            Edit requirements
+          </button>
+        )}
+        <button type="button" className="btn-primary" onClick={() => void generate(requirements, { reveal: true })} disabled={loading} data-testid="mobile-generate">
+          {loading ? 'Generating...' : plan ? 'Regenerate' : 'Generate plan'}
+        </button>
+      </div>
     </div>
   );
 }

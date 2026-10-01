@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { downloadText } from './download';
+import { isNarrow } from './options';
 
 interface Props {
   /** Mermaid source with AWS icon shapes (needs the bundled icon pack). */
@@ -52,7 +53,8 @@ export function DiagramCanvas({ iconSource, portableSource, title }: Props) {
   const [svg, setSvg] = useState('');
   const [error, setError] = useState('');
   const [showSource, setShowSource] = useState(false);
-  const [fit, setFit] = useState(true);
+  // Phones start at actual size (scroll sideways) because fit-to-width makes the labels unreadably small.
+  const [fit, setFit] = useState(() => !isNarrow());
   const [naturalWidth, setNaturalWidth] = useState(0);
   const counter = useRef(0);
 
@@ -123,6 +125,11 @@ export function DiagramCanvas({ iconSource, portableSource, title }: Props) {
         <pre className="mermaid-source" aria-label="Generated Mermaid source">
           {portableSource}
         </pre>
+      )}
+      {svg && !fit && (
+        <p className="canvas-scroll-hint" data-testid="diagram-scroll-hint">
+          Shown at actual size. Scroll sideways to see the whole diagram, or choose Fit to width.
+        </p>
       )}
       <p className="canvas-foot">
         Drawn from validated components and connections. The model never writes diagram code. Service icons are the official AWS Architecture Icons; the Mermaid source leaves them out so it renders in any Mermaid viewer.
