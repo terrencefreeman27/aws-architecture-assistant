@@ -11,7 +11,7 @@ export const AVAILABILITY_LEVELS = ['best_effort', 'business_hours', 'high', 'mi
 export const BUDGET_LEVELS = ['minimal', 'moderate', 'flexible'] as const;
 export const OPS_MODELS = ['small_team', 'ops_team', 'containers'] as const;
 
-/** Commercial regions offered in the form. "Not sure" is represented by ''. */
+/** Commercial regions offered in the form. */
 export const REGIONS = [
   'us-east-1',
   'us-east-2',
@@ -33,20 +33,28 @@ export const REGIONS = [
 const optionalEnum = <T extends readonly [string, ...string[]]>(values: T) =>
   z.union([z.enum(values), z.literal('')]).default('');
 
+/**
+ * Like optionalEnum, plus "unsure": the user answered "Not sure" and the planner
+ * applies a conservative default (see shared/unsure.ts). Older share links and
+ * autosaves never contain it, so they still parse unchanged.
+ */
+const unsureEnum = <T extends readonly [string, ...string[]]>(values: T) =>
+  z.union([z.enum(values), z.literal('unsure'), z.literal('')]).default('');
+
 const text = (max: number) => z.string().trim().max(max).default('');
 
 export const RequirementsSchema = z.object({
   description: text(2000),
   workloadType: optionalEnum(WORKLOAD_TYPES),
   existingSystems: text(1000),
-  expectedUsage: optionalEnum(USAGE_LEVELS),
+  expectedUsage: unsureEnum(USAGE_LEVELS),
   usageNotes: text(500),
-  dataSensitivity: optionalEnum(SENSITIVITY_LEVELS),
-  region: optionalEnum(REGIONS),
-  availability: optionalEnum(AVAILABILITY_LEVELS),
+  dataSensitivity: unsureEnum(SENSITIVITY_LEVELS),
+  region: unsureEnum(REGIONS),
+  availability: unsureEnum(AVAILABILITY_LEVELS),
   recoveryNotes: text(500),
-  budget: optionalEnum(BUDGET_LEVELS),
-  operations: optionalEnum(OPS_MODELS),
+  budget: unsureEnum(BUDGET_LEVELS),
+  operations: unsureEnum(OPS_MODELS),
   operationsNotes: text(500),
 });
 

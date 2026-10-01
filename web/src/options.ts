@@ -1,4 +1,4 @@
-export { SELECT_OPTIONS, TIER_LABELS, type Option } from '../../shared/options';
+export { SELECT_OPTIONS, TIER_LABELS, unsureDefaultLabel, type Option } from '../../shared/options';
 
 export function focusField(field: string): void {
   const el = document.getElementById(`field-${field}`);

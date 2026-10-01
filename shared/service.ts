@@ -3,11 +3,13 @@ import { toMermaid } from './mermaid';
 import type { ArchitectureProvider } from './provider';
 import { computeCompleteness, followUpQuestions } from './requirements';
 import { RequirementsSchema, type PlanResponse, type Requirements } from './schema';
+import { resolveUnsure, unsureAssumptions } from './unsure';
 import { validatePlan } from './validate';
 
 /**
  * The single path from requirements to a response, shared by every provider:
- * completeness gate -> guardrail cautions -> provider -> validation -> Mermaid.
+ * completeness gate -> guardrail cautions -> "Not sure" defaults -> provider -> validation -> Mermaid.
+ * Providers only ever see resolved requirements; each default becomes a plan assumption.
  */
 export async function planFromRequirements(req: Requirements, provider: ArchitectureProvider): Promise<PlanResponse> {
   const completeness = computeCompleteness(req);
@@ -20,7 +22,7 @@ export async function planFromRequirements(req: Requirements, provider: Architec
 
   let raw: unknown;
   try {
-    raw = await provider.generatePlan(req);
+    raw = await provider.generatePlan(resolveUnsure(req));
   } catch (err) {
     return {
       kind: 'error',
@@ -40,7 +42,11 @@ export async function planFromRequirements(req: Requirements, provider: Architec
     };
   }
 
-  const plan = { ...result.plan, cautions: mergeCautions(cautions, result.plan.cautions) };
+  const plan = {
+    ...result.plan,
+    assumptions: [...unsureAssumptions(req), ...result.plan.assumptions],
+    cautions: mergeCautions(cautions, result.plan.cautions),
+  };
   return {
     kind: 'plan',
     provider: provider.name,

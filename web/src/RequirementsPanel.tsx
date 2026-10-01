@@ -1,7 +1,8 @@
 import { FIELD_META, computeCompleteness, requiredFields } from '../../shared/requirements';
 import { type RequirementField, type Requirements } from '../../shared/schema';
 import { SCENARIOS } from '../../shared/scenarios';
-import { SELECT_OPTIONS } from './options';
+import { UNSURE, isUnsureField } from '../../shared/unsure';
+import { SELECT_OPTIONS, unsureDefaultLabel } from './options';
 
 interface Props {
   requirements: Requirements;
@@ -73,6 +74,7 @@ export function RequirementsPanel({ requirements, onChange, onLoadScenario, onGe
         >
           <span style={{ width: `${completeness.percent}%` }} />
         </div>
+        <p className="side-note">Don't know an answer? Choose "Not sure" and the plan uses a safe default and tells you what it assumed.</p>
         {completeness.missing.length > 0 ? (
           <p className="meter-note">Missing: {completeness.missing.map((f) => FIELD_META[f].short).join(', ')}</p>
         ) : (
@@ -117,6 +119,11 @@ export function RequirementsPanel({ requirements, onChange, onLoadScenario, onGe
                         </option>
                       ))}
                     </select>
+                  )}
+                  {requirements[field] === UNSURE && isUnsureField(field) && (
+                    <p className="assumed" data-testid={`assumed-${field}`}>
+                      We'll assume: {unsureDefaultLabel(field)}
+                    </p>
                   )}
                   <p className="hint" id={`${id}-hint`}>
                     {meta.question}

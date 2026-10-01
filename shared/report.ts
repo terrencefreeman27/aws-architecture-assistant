@@ -1,8 +1,9 @@
 import { getService } from './catalog';
-import { SELECT_OPTIONS, TIER_LABELS } from './options';
+import { SELECT_OPTIONS, TIER_LABELS, unsureDefaultLabel } from './options';
 import { FIELD_META } from './requirements';
 import { PILLARS, type Plan, type RequirementField, type Requirements } from './schema';
 import { getSource, type Source } from './sources';
+import { UNSURE, isUnsureField } from './unsure';
 
 /**
  * Turns a validated plan into a self-contained Markdown design document.
@@ -78,6 +79,7 @@ function fence(source: string): string {
 
 function requirementValue(field: RequirementField, value: string): string {
   if (!value) return '_Not answered_';
+  if (value === UNSURE && isUnsureField(field)) return `Not sure, so assumed: ${mdText(unsureDefaultLabel(field))}`;
   const option = SELECT_OPTIONS[field]?.find((o) => o.value === value);
   return mdText(option ? option.label : value);
 }

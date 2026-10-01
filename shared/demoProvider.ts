@@ -1,5 +1,6 @@
 import { getService } from './catalog';
 import type { ArchitectureProvider } from './provider';
+import { resolveUnsure } from './unsure';
 import type {
   Alternative,
   Assumption,
@@ -20,8 +21,9 @@ import type {
  * and editing a requirement visibly changes the result.
  */
 
-const SENSITIVITY_RANK = { '': 0, public: 0, internal: 1, confidential: 2, regulated: 3 } as const;
-const AVAILABILITY_RANK = { '': 0, best_effort: 0, business_hours: 1, high: 2, mission_critical: 3 } as const;
+// "unsure" is resolved before planning (shared/unsure.ts); if it ever reaches here it ranks as the protective default.
+const SENSITIVITY_RANK = { '': 0, public: 0, internal: 1, confidential: 2, regulated: 3, unsure: 2 } as const;
+const AVAILABILITY_RANK = { '': 0, best_effort: 0, business_hours: 1, high: 2, mission_critical: 3, unsure: 2 } as const;
 
 const USAGE_TEXT: Record<string, string> = {
   low: 'low, steady',
@@ -554,7 +556,8 @@ const TITLES = {
   ai_assistant: 'AI knowledge assistant',
 } as const;
 
-export function buildDemoPlan(req: Requirements): Plan {
+export function buildDemoPlan(input: Requirements): Plan {
+  const req = resolveUnsure(input);
   if (req.workloadType !== 'web_app' && req.workloadType !== 'integration' && req.workloadType !== 'ai_assistant') {
     throw new Error(`Demo mode has no template for workload type "${req.workloadType}"`);
   }

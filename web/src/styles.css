@@ -121,6 +121,7 @@ a { color: var(--link); }
 .field select option { color: var(--text); background: #fff; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 1px var(--accent); }
 .field.is-missing input, .field.is-missing select, .field.is-missing textarea { border-color: #8a6a3a; }
+.assumed { font-size: 12px; font-weight: 600; color: #ffcf8a; }
 .hint { font-size: 11.5px; color: var(--navy-muted); line-height: 1.4; }
 
 .form-actions { display: flex; gap: 8px; position: sticky; bottom: -28px; background: var(--navy-900); padding: 12px 0 4px; }

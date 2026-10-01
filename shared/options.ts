@@ -1,4 +1,5 @@
 import { REGIONS, type RequirementField } from './schema';
+import { UNSURE, UNSURE_DEFAULTS, UNSURE_FIELDS, type UnsureField } from './unsure';
 
 /** Human-readable labels for form options and tiers, shared by the UI and the Markdown report. */
 
@@ -25,7 +26,7 @@ export const REGION_NAMES: Record<(typeof REGIONS)[number], string> = {
   'sa-east-1': 'South America (São Paulo)',
 };
 
-export const SELECT_OPTIONS: Partial<Record<RequirementField, Option[]>> = {
+const BASE_OPTIONS: Partial<Record<RequirementField, Option[]>> = {
   workloadType: [
     { value: 'web_app', label: 'A website or app people sign in to or browse' },
     { value: 'integration', label: 'Moving data between systems we already use' },
@@ -62,6 +63,22 @@ export const SELECT_OPTIONS: Partial<Record<RequirementField, Option[]>> = {
     { value: 'containers', label: 'Our team already uses containers (e.g. Docker)' },
   ],
 };
+
+export const UNSURE_LABEL = 'Not sure (use a safe default)';
+
+/** Options for each choice field. Fields with a responsible default also offer "Not sure". */
+export const SELECT_OPTIONS: Partial<Record<RequirementField, Option[]>> = Object.fromEntries(
+  Object.entries(BASE_OPTIONS).map(([field, options]) => [
+    field,
+    (UNSURE_FIELDS as readonly string[]).includes(field) ? [...options!, { value: UNSURE, label: UNSURE_LABEL }] : options!,
+  ]),
+);
+
+/** Label of the default that "Not sure" stands for, e.g. "Confidential: customer or business data". */
+export function unsureDefaultLabel(field: UnsureField): string {
+  const value = UNSURE_DEFAULTS[field].value;
+  return BASE_OPTIONS[field]?.find((o) => o.value === value)?.label ?? value;
+}
 
 export const TIER_LABELS: Record<string, string> = {
   users: 'Users',
