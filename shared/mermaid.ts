@@ -10,7 +10,7 @@ const DISALLOWED = /[^\p{L}\p{N} .,:/()&+\-'?_]/gu;
 
 export function sanitizeLabel(value: string, max = 60): string {
   const cleaned = value.replace(DISALLOWED, ' ').replace(/\s+/g, ' ').trim();
-  const clipped = cleaned.length > max ? `${cleaned.slice(0, max - 1).trimEnd()}...` : cleaned;
+  const clipped = cleaned.length > max ? `${cleaned.slice(0, max - 3).trimEnd()}...` : cleaned;
   return clipped || 'Unnamed';
 }
 
