@@ -1,22 +1,38 @@
 import { useEffect, useRef, useState } from 'react';
+import { computeCompleteness } from '../../shared/requirements';
 import { EMPTY_REQUIREMENTS, type PlanResponse, type Requirements } from '../../shared/schema';
 import { getScenario } from '../../shared/scenarios';
+import { decodeRequirements, readShareHash } from '../../shared/share';
 import { PlanningApiError } from './api';
 import { AssistantPanel } from './AssistantPanel';
 import { DiagramCanvas } from './DiagramCanvas';
 import { PlanDetails } from './PlanDetails';
 import { planWith, plannerEnv, plannerLabel, resolvePlannerMode, type PlannerMode } from './planner';
 import { RequirementsPanel } from './RequirementsPanel';
+import { CopyLinkButton, ShareFallback, useShareLink } from './ShareLink';
+import { loadAutosave, saveAutosave } from './storage';
+
+function clearHash() {
+  try {
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  } catch {
+    // Some embedded contexts disallow history changes; the stale fragment is harmless.
+  }
+}
 
 export function App() {
   const [requirements, setRequirements] = useState<Requirements>(EMPTY_REQUIREMENTS);
   const [response, setResponse] = useState<PlanResponse | null>(null);
-  const [generatedFor, setGeneratedFor] = useState<string>('');
+  const [generatedFor, setGeneratedFor] = useState<Requirements | null>(null);
   const [loading, setLoading] = useState(false);
   const [requestError, setRequestError] = useState('');
   const [activeScenario, setActiveScenario] = useState<string | null>(null);
   const [apiFailed, setApiFailed] = useState(false);
   const [mode, setMode] = useState<PlannerMode | null>(null);
+  const [linkNotice, setLinkNotice] = useState('');
+  const booted = useRef(false);
+  const hydrated = useRef(false);
+  const share = useShareLink(requirements);
   const modeRef = useRef<Promise<PlannerMode> | null>(null);
   const getMode = () => (modeRef.current ??= resolvePlannerMode(plannerEnv));
 
@@ -38,7 +54,7 @@ export function App() {
     try {
       const result = await planWith(forced ?? (await getMode()), req);
       setResponse(result);
-      setGeneratedFor(JSON.stringify(req));
+      setGeneratedFor(req);
     } catch (err) {
       setApiFailed(err instanceof PlanningApiError);
       setRequestError(err instanceof Error ? err.message : 'The planner failed unexpectedly.');
@@ -46,6 +62,48 @@ export function App() {
       setLoading(false);
     }
   };
+
+  /** Loads requirements from a "#r=" share link. Returns false if there is no link or it is invalid. */
+  const applyShareHash = async (): Promise<boolean> => {
+    const payload = readShareHash(window.location.hash);
+    if (payload === null) return false;
+    const result = await decodeRequirements(payload);
+    clearHash();
+    if (!result.ok) {
+      const saved = loadAutosave();
+      setLinkNotice(`${result.error} ${saved ? 'Showing your autosaved requirements instead.' : 'Starting from an empty form.'}`);
+      return false;
+    }
+    setLinkNotice('');
+    setRequirements(result.requirements);
+    setActiveScenario(null);
+    void generate(result.requirements);
+    return true;
+  };
+
+  // Startup: a share link wins over the autosave. Guarded so StrictMode's double effect runs only once.
+  useEffect(() => {
+    if (!booted.current) {
+      booted.current = true;
+      void (async () => {
+        if (!(await applyShareHash())) {
+          const saved = loadAutosave();
+          if (saved) {
+            setRequirements(saved);
+            if (computeCompleteness(saved).missing.length === 0) void generate(saved);
+          }
+        }
+        hydrated.current = true;
+      })();
+    }
+    const onHashChange = () => void applyShareHash();
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  useEffect(() => {
+    if (hydrated.current) saveAutosave(requirements);
+  }, [requirements]);
 
   const loadScenario = (id: string) => {
     const scenario = getScenario(id);
@@ -56,7 +114,7 @@ export function App() {
   };
 
   const plan = response?.kind === 'plan' ? response : null;
-  const stale = Boolean(plan) && generatedFor !== JSON.stringify(requirements);
+  const stale = Boolean(plan) && JSON.stringify(generatedFor) !== JSON.stringify(requirements);
 
   return (
     <div className="workbench">
@@ -95,6 +153,7 @@ export function App() {
                 {plannerLabel(mode)}
               </span>
             )}
+            {plan && <CopyLinkButton share={share} />}
             {plan && (
               <button type="button" className="btn-primary" onClick={() => void generate()} disabled={loading}>
                 {loading ? 'Regenerating...' : 'Regenerate'}
@@ -102,6 +161,16 @@ export function App() {
             )}
           </div>
         </header>
+
+        <ShareFallback share={share} />
+        {linkNotice && (
+          <div className="callout is-error link-notice" role="alert" data-testid="link-notice">
+            <p>{linkNotice}</p>
+            <button type="button" className="link-btn" onClick={() => setLinkNotice('')}>
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {loading && !plan ? (
           <div className="skeleton" aria-busy="true">

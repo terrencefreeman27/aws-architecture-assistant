@@ -254,6 +254,16 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .callout.is-error .btn-secondary { margin-top: 8px; }
 .callout.is-error ul { margin: 6px 0 0; padding-left: 18px; }
 .callout.is-stale { background: var(--stale-bg); color: #7a4a00; border: 1px solid #f5d38a; }
+.link-notice { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.link-notice .link-btn { color: var(--error); }
+
+/* ---------- Share link fallback ---------- */
+.share-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 12px 14px; display: grid; gap: 8px; font-size: 13px; }
+.share-panel label { font-weight: 600; }
+.share-row { display: flex; gap: 8px; min-width: 0; }
+.share-row input { flex: 1; min-width: 0; font-size: 12.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--radius-ctl); background: #f6f7f9; }
+.share-row input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.share-panel .hint { color: var(--muted); }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 1180px) {
