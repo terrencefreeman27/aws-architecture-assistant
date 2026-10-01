@@ -166,7 +166,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 }
 .canvas-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); gap: 8px; flex-wrap: wrap; }
 .canvas-label { font-size: 13px; font-weight: 700; color: var(--text-2); }
-.toolbar-actions { display: flex; gap: 8px; }
+.toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .canvas {
   padding: 16px;
   min-height: 420px;

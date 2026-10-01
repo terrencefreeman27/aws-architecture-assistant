@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { toMermaid } from '../../shared/mermaid';
 import { computeCompleteness } from '../../shared/requirements';
 import { EMPTY_REQUIREMENTS, type PlanResponse, type Requirements } from '../../shared/schema';
 import { getScenario } from '../../shared/scenarios';
@@ -116,6 +117,7 @@ export function App() {
   };
 
   const plan = response?.kind === 'plan' ? response : null;
+  const iconSource = useMemo(() => (plan ? toMermaid(plan.plan, { icons: true }) : ''), [plan]);
 
   /** The report describes the plan on screen, so it uses the requirements that plan was generated from. */
   const downloadReport = async () => {
@@ -200,7 +202,7 @@ export function App() {
           </div>
         ) : plan ? (
           <div className={`plan-area${loading ? ' is-loading' : ''}`}>
-            <DiagramCanvas source={plan.mermaid} title={plan.plan.title} />
+            <DiagramCanvas iconSource={iconSource} portableSource={plan.mermaid} title={plan.plan.title} />
             <PlanDetails plan={plan.plan} />
             <p className="disclaimer">
               This plan is a reviewable starting point generated from your stated requirements. It is not production-ready, does not establish compliance, and contains no cost figures. Validate it with your team and a Well-Architected review.

@@ -1,15 +1,28 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import { downloadText } from './download';
 
 interface Props {
-  source: string;
+  /** Mermaid source with AWS icon shapes (needs the bundled icon pack). */
+  iconSource: string;
+  /** Portable Mermaid source without icons: shown to the user and used if the icon pack fails to load. */
+  portableSource: string;
   title: string;
 }
 
 type MermaidApi = typeof import('mermaid')['default'];
-let mermaidPromise: Promise<MermaidApi> | null = null;
+let mermaidPromise: Promise<{ mermaid: MermaidApi; icons: boolean }> | null = null;
 
-function loadMermaid(): Promise<MermaidApi> {
-  mermaidPromise ??= import('mermaid').then(({ default: mermaid }) => {
+function loadMermaid(): Promise<{ mermaid: MermaidApi; icons: boolean }> {
+  mermaidPromise ??= import('mermaid').then(async ({ default: mermaid }) => {
+    // The icon pack is bundled (no network). If it fails to load, diagrams fall back to plain boxes.
+    let icons = false;
+    try {
+      const { awsIconPack } = await import('./awsIconPack');
+      mermaid.registerIconPacks([{ name: awsIconPack.prefix, icons: awsIconPack }]);
+      icons = true;
+    } catch {
+      icons = false;
+    }
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: 'strict',
@@ -29,12 +42,12 @@ function loadMermaid(): Promise<MermaidApi> {
         fontSize: '14px',
       },
     });
-    return mermaid;
+    return { mermaid, icons };
   });
   return mermaidPromise;
 }
 
-export function DiagramCanvas({ source, title }: Props) {
+export function DiagramCanvas({ iconSource, portableSource, title }: Props) {
   const reactId = useId().replace(/[^a-zA-Z0-9]/g, '');
   const [svg, setSvg] = useState('');
   const [error, setError] = useState('');
@@ -48,7 +61,7 @@ export function DiagramCanvas({ source, title }: Props) {
     const renderId = `diagram-${reactId}-${++counter.current}`;
     setError('');
     loadMermaid()
-      .then((mermaid) => mermaid.render(renderId, source))
+      .then(({ mermaid, icons }) => mermaid.render(renderId, icons ? iconSource : portableSource))
       .then(({ svg: out }) => {
         if (cancelled) return;
         // Mermaid records the diagram's natural width as an inline max-width.
@@ -65,19 +78,13 @@ export function DiagramCanvas({ source, title }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [source, reactId]);
+  }, [iconSource, portableSource, reactId]);
 
+  // Icons are inline SVG inside the diagram, so the exported file is self-contained.
   const exportSvg = () => {
     if (!svg) return;
-    const blob = new Blob([`<?xml version="1.0" encoding="UTF-8"?>\n${svg}`], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'architecture'}.svg`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    const name = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'architecture'}.svg`;
+    downloadText(name, `<?xml version="1.0" encoding="UTF-8"?>\n${svg}`, 'image/svg+xml');
   };
 
   return (
@@ -114,10 +121,12 @@ export function DiagramCanvas({ source, title }: Props) {
       )}
       {showSource && (
         <pre className="mermaid-source" aria-label="Generated Mermaid source">
-          {source}
+          {portableSource}
         </pre>
       )}
-      <p className="canvas-foot">Drawn from validated components and connections. The model never writes diagram code.</p>
+      <p className="canvas-foot">
+        Drawn from validated components and connections. The model never writes diagram code. Service icons are the official AWS Architecture Icons; the Mermaid source leaves them out so it renders in any Mermaid viewer.
+      </p>
     </div>
   );
 }
