@@ -48,6 +48,8 @@ const noHorizontalOverflow = (page) => page.evaluate(() => document.documentElem
 try {
   /* ---------------- Desktop 1440 ---------------- */
   const page = await newPage(1440, 900);
+  check((await page.getByText('No plan yet').count()) === 1, 'empty state shown before any plan');
+  await page.screenshot({ path: OUT + '01-empty-desktop-1440.png' });
 
   for (const [name, file, marker] of [
     ['Basic web application', '02-web-app-desktop-1440.png', /Users/],
