@@ -1,6 +1,16 @@
-import express from 'express';
+import { createApp, selectProvider } from './app';
 
-const app = express();
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+// Load a local .env if present (never committed). Demo mode needs none.
+try {
+  process.loadEnvFile();
+} catch {
+  /* no .env file */
+}
+
+const { provider, note } = await selectProvider();
+if (note) console.warn(note);
+
 const port = Number(process.env.API_PORT ?? 4080);
-app.listen(port, () => console.log(`API listening on http://localhost:${port}`));
+createApp(provider).listen(port, () => {
+  console.log(`API listening on http://localhost:${port} (provider: ${provider.name})`);
+});
