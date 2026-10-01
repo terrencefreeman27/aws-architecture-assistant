@@ -23,19 +23,38 @@ const browser = await chromium.launch();
 const consoleErrors = [];
 const apiRequests = [];
 
-async function newPage(width, height) {
+const offOrigin = [];
+
+async function newPage(width, height, { url = BASE, initScript, clipboard = false } = {}) {
   const ctx = await browser.newContext({ viewport: { width, height }, acceptDownloads: true });
+  if (clipboard) await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(BASE).origin });
   const page = await ctx.newPage();
+  if (initScript) await page.addInitScript(initScript);
   page.on('console', (m) => m.type() === 'error' && consoleErrors.push(m.text()));
   page.on('pageerror', (e) => consoleErrors.push(e.message));
-  page.on('request', (r) => new URL(r.url()).pathname.startsWith('/api') && apiRequests.push(r.url()));
-  await page.goto(BASE, { waitUntil: 'networkidle' });
+  page.on('request', (r) => {
+    const u = new URL(r.url());
+    if (u.pathname.startsWith('/api')) apiRequests.push(r.url());
+    // Everything is bundled: no request may leave the app's origin (data: and blob: URLs are local).
+    if ((u.protocol === 'http:' || u.protocol === 'https:') && u.origin !== new URL(BASE).origin) offOrigin.push(r.url());
+  });
+  await page.goto(url, { waitUntil: 'networkidle' });
   return page;
+}
+const iconCount = (page) => page.locator('[data-testid="diagram"] svg g.icon-shape svg').count();
+async function download(page, testId) {
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId(testId).click()]);
+  const { readFile } = await import('node:fs/promises');
+  return { name: dl.suggestedFilename(), text: await readFile(await dl.path(), 'utf8') };
 }
 
 const diagramReady = (page) => page.waitForSelector('[data-testid="diagram"] svg', { timeout: 20000 });
 // Mermaid wraps long labels into separate lines without a space, so compare with whitespace removed.
-const diagramText = (page) => page.evaluate(() => (document.querySelector('[data-testid="diagram"]')?.textContent ?? '').replace(/\s+/g, ''));
+// <style> is excluded: it carries a per-render id, which differs between pages.
+const diagramText = (page) =>
+  page.evaluate(() => [...document.querySelectorAll('[data-testid="diagram"] svg text')].map((t) => t.textContent).join('').replace(/\s+/g, ''));
+// Mermaid draws plain shapes as g.node and icon shapes as g.icon-shape.
+const NODE_SEL = '[data-testid="diagram"] svg :is(g.node, g.icon-shape)';
 const waitForDiagramText = (page, re) =>
   page.waitForFunction((src) => new RegExp(src).test((document.querySelector('[data-testid="diagram"]')?.textContent ?? '').replace(/\s+/g, '')), re.source, { timeout: 20000 });
 async function loadScenario(page, name, marker) {
@@ -53,7 +72,7 @@ const noHorizontalOverflow = (page) => page.evaluate(() => document.documentElem
 
 try {
   /* ---------------- Desktop 1440 ---------------- */
-  const page = await newPage(1440, 900);
+  const page = await newPage(1440, 900, { clipboard: true });
   check((await page.getByText('No plan yet').count()) === 1, 'empty state shown before any plan');
   const badge = await page.getByTestId('planner-mode').innerText({ timeout: 10000 });
   console.log(`      planner badge: "${badge}"`);
@@ -67,8 +86,10 @@ try {
     ['AI knowledge assistant', '04-ai-assistant-desktop-1440.png', /KnowledgeBase/],
   ]) {
     await loadScenario(page, name, marker);
-    const nodes = await page.locator('[data-testid="diagram"] svg g.node').count();
+    const nodes = await page.locator(NODE_SEL).count();
     check(nodes > 3, `${name}: diagram rendered with ${nodes} nodes`);
+    const icons = await iconCount(page);
+    check(icons >= 5, `${name}: ${icons} AWS service icons drawn in the diagram`);
     check((await page.getByRole('heading', { name: 'Assumptions' }).count()) === 1, `${name}: assumptions visible`);
     await page.getByRole('tab', { name: /Alternatives/ }).click();
     check((await page.locator('.alternative').count()) >= 1, `${name}: at least one alternative with tradeoffs`);
@@ -103,13 +124,51 @@ try {
   await resetScroll(page);
   await page.screenshot({ path: OUT + '07-regenerated-plan-1440.png' });
 
-  // SVG export
-  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('export-svg').click()]);
-  const path = await download.path();
-  const { readFile } = await import('node:fs/promises');
-  const svgText = await readFile(path, 'utf8');
-  check(svgText.startsWith('<?xml') && svgText.includes('<svg') && /ECSFargate/.test(svgText.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, '')), `SVG export downloaded (${download.suggestedFilename()}, ${svgText.length} bytes)`);
+  // Copy link -> open in a fresh context -> same plan
+  await page.getByTestId('copy-link').click();
+  await page.getByRole('button', { name: 'Link copied' }).waitFor({ timeout: 5000 });
+  const link = await page.evaluate(() => navigator.clipboard.readText());
+  check(link.startsWith(BASE.split('#')[0]) && /#r=z[A-Za-z0-9_-]+$/.test(link), `copy link puts a #r= share link on the clipboard (${link.length} chars)`);
+  const shared = await newPage(1440, 900, { url: link });
+  await diagramReady(shared);
+  await waitForDiagramText(shared, /ECSFargate/);
+  check((await diagramText(shared)) === after, 'shared link opens the same plan in a fresh browser context');
+  check((await shared.inputValue('#field-operations')) === 'containers' && (await shared.inputValue('#field-availability')) === 'high', 'shared link restores the edited requirements');
+  check(!(await shared.evaluate(() => location.hash)), 'share fragment is cleared from the address bar after loading');
+  await shared.context().close();
+
+  // Reload restores the autosave and regenerates
+  await page.reload({ waitUntil: 'networkidle' });
+  await diagramReady(page);
+  await waitForDiagramText(page, /ECSFargate/);
+  check((await page.inputValue('#field-operations')) === 'containers' && (await diagramText(page)) === after, 'reload restores autosaved requirements and the same plan');
+
+  // Markdown report
+  const report = await download(page, 'download-report');
+  const sections = ['## Summary', '## Requirements as entered', '## Architecture diagram', '## Components', '## Data flow', '## Assumptions', '## Open questions', '## Considerations by pillar', '## Alternatives and tradeoffs', '## Implementation sequence', '## Cautions', '## Sources', '## Share link'];
+  const missing = sections.filter((h) => !report.text.includes(`\n${h}\n`));
+  check(report.name.endsWith('-design.md') && missing.length === 0, `report downloaded (${report.name}, ${report.text.length} chars) with all sections${missing.length ? `; missing ${missing.join(', ')}` : ''}`);
+  const mermaidSource = await page.evaluate(async () => {
+    const btn = [...document.querySelectorAll('button')].find((b) => b.textContent === 'Mermaid source');
+    btn?.click();
+    await new Promise((r) => setTimeout(r, 50));
+    const text = document.querySelector('.mermaid-source')?.textContent ?? '';
+    btn?.click();
+    return text;
+  });
+  check(report.text.includes('```mermaid\n' + mermaidSource + '\n```'), 'report embeds the same generated Mermaid as the Mermaid source panel');
+  check(/\*\*Not production-ready\.\*\*/.test(report.text) && !/\$\s?\d/.test(report.text), 'report has the not-production-ready notice and no dollar figures');
+  const reportUrls = report.text.match(/https?:\/\/[^\s)<>]+/g) ?? [];
+  check(reportUrls.every((u) => u.startsWith('https://docs.aws.amazon.com/') || u.startsWith(BASE.split('#')[0] + '#r=')), `report links only to AWS docs sources and the share link (${reportUrls.length} URLs)`);
+  await writeFile(fileURLToPath(new URL('../docs/example-report.md', import.meta.url)), report.text);
+
+  // SVG export with embedded icons
+  const svgFile = await download(page, 'export-svg');
+  const svgText = svgFile.text;
+  check(svgText.startsWith('<?xml') && svgText.includes('<svg') && /ECSFargate/.test(svgText.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, '')), `SVG export downloaded (${svgFile.name}, ${svgText.length} bytes)`);
   check(!svgText.includes('<foreignObject'), 'exported SVG uses plain SVG text (no foreignObject)');
+  const nestedSvgs = (svgText.match(/<svg\b/g) ?? []).length - 1;
+  check(nestedSvgs >= 5 && !/<image\b|xlink:href=|\shref="(?!#)/.test(svgText), `exported SVG embeds ${nestedSvgs} icons inline, with no external references`);
   await writeFile(fileURLToPath(new URL('../docs/example-architecture.svg', import.meta.url)), svgText);
 
   // Incomplete requirements -> follow-up questions, no plan
@@ -132,10 +191,38 @@ try {
   check(/Exact cost/.test(cautionText) && /Compliance/.test(cautionText) && /Production readiness/.test(cautionText), 'cost, compliance, and production-readiness questions are flagged, not answered');
   check(!/\$\s?\d/.test(await page.locator('main').innerText()), 'no dollar figures anywhere in the plan');
 
+  /* ---------------- Share link edge cases ---------------- */
+  const bad = await newPage(1440, 900, { url: `${BASE.split('#')[0]}#r=zNotAValidPayload` });
+  await bad.getByTestId('link-notice').waitFor({ timeout: 5000 });
+  check(/damaged or was edited/.test(await bad.getByTestId('link-notice').innerText()), 'a tampered link shows a clear message instead of crashing');
+  check((await bad.getByText('No plan yet').count()) === 1, 'a tampered link falls back to the empty form');
+  await bad.context().close();
+
+  // Clipboard API unavailable -> selectable link field
+  const noClip = await newPage(1440, 900, { initScript: () => Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true }) });
+  await loadScenario(noClip, 'Basic web application', /DynamoDB/);
+  await noClip.getByTestId('copy-link').click();
+  await noClip.getByTestId('share-fallback').waitFor({ timeout: 5000 });
+  const fieldValue = await noClip.inputValue('#share-link-field');
+  check(/#r=z[A-Za-z0-9_-]+$/.test(fieldValue), 'without the Clipboard API the link is shown in a selectable field');
+  check(await noHorizontalOverflow(noClip), 'share fallback field causes no horizontal overflow');
+  await resetScroll(noClip);
+  await noClip.screenshot({ path: OUT + '12-share-link-fallback-1440.png' });
+  await noClip.context().close();
+
+  // localStorage blocked -> app still works
+  const noStore = await newPage(1440, 900, {
+    initScript: () => Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('blocked', 'SecurityError'); } }),
+  });
+  await loadScenario(noStore, 'AI knowledge assistant', /KnowledgeBase/);
+  check((await noStore.locator(NODE_SEL).count()) > 3, 'app works when localStorage is blocked');
+  await noStore.context().close();
+
   /* ---------------- Narrow 390 ---------------- */
   const narrow = await newPage(390, 844);
   await loadScenario(narrow, 'AI knowledge assistant', /KnowledgeBase/);
   check(await noHorizontalOverflow(narrow), 'no horizontal page overflow at 390px');
+  check((await iconCount(narrow)) >= 5, 'icons drawn at 390px');
   await narrow.evaluate(() => document.querySelector('.workspace-head')?.scrollIntoView({ block: 'start' }));
   await narrow.screenshot({ path: OUT + '09-ai-assistant-mobile-390.png' });
   await narrow.screenshot({ path: OUT + '10-ai-assistant-mobile-390-full.png', fullPage: true });
@@ -153,6 +240,7 @@ try {
   await browser.close();
 }
 
+check(offOrigin.length === 0, `no requests outside the app origin${offOrigin.length ? `: ${offOrigin.join(', ')}` : ''}`);
 if (EXPECT_PLANNER === 'local') check(apiRequests.length === 0, `no /api requests in local mode${apiRequests.length ? `: ${apiRequests.join(', ')}` : ''}`);
 check(consoleErrors.length === 0, `no console errors${consoleErrors.length ? `: ${consoleErrors.join(' | ')}` : ''}`);
 console.log(failures.length ? `\n${failures.length} check(s) failed` : '\nAll browser checks passed');

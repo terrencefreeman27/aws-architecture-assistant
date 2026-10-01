@@ -11,7 +11,7 @@ A local workbench for people who understand their business problem but not AWS. 
 1. **Requirements discovery.** The left panel captures the purpose, existing systems, expected usage, data sensitivity, AWS Region, availability and recovery needs, budget posture, and operational constraints. A completeness meter shows what is still missing.
 2. **Follow-up questions before design.** If a required answer is missing, the assistant returns questions (with the reason each one matters) instead of guessing an architecture.
 3. **A structured plan.** Once requirements are complete, the plan includes:
-   - an architecture diagram, exportable as SVG
+   - an architecture diagram drawn with the official AWS Architecture Icons, exportable as a self-contained SVG
    - the selected AWS components and what each one does in this design
    - a step-by-step data-flow explanation
    - assumptions (each linked to the requirement you can edit to correct it) and open questions
@@ -19,6 +19,8 @@ A local workbench for people who understand their business problem but not AWS. 
    - at least one alternative with its tradeoffs
    - a high-level implementation sequence
 4. **Edit and regenerate.** Change any requirement; the plan is marked stale until you regenerate, and the result visibly changes (for example, switching to "team already uses containers" turns a serverless design into ALB + ECS Fargate + RDS).
+5. **Save and share.** Requirements autosave in your browser and come back on reload. **Copy link** puts the requirements into a link; opening it loads them and generates the same plan. If the browser blocks clipboard access, the link appears in a field you can select and copy.
+6. **Download report (.md).** A self-contained Markdown design document: requirements as entered, the diagram as a Mermaid block, components, data flow, assumptions, open questions, considerations by pillar, alternatives, implementation sequence, cautions, the cited AWS documentation, and the share link. See [`docs/example-report.md`](docs/example-report.md).
 
 Three one-click samples are included: a basic web application, an integration between existing systems (CRM to on-premises ERP), and an AI knowledge assistant.
 
@@ -32,6 +34,25 @@ Three one-click samples are included: a basic web application, an integration be
 | No fabricated citations | `shared/sources.ts` is a typed registry of 56 official AWS documentation pages (AWS Well-Architected Framework, its pillars and lenses, two whitepapers, cost tooling docs, and service overview pages). Each URL was fetched and confirmed (HTTP 200, matching page title) on 2026-10-01. Plans cite registry ids only; unknown ids are stripped, and a claim left with no source is relabelled as an **assumption**. |
 | No confident answers it cannot back up | Requests for exact costs, compliance certification, "production-ready" or guaranteed uptime, and other clouds produce explicit cautions instead of answers (`shared/guardrails.ts`). |
 | No invented prices | Cost is described as drivers and relative tradeoffs, with links to AWS Pricing Calculator and AWS Budgets documentation for building a real estimate. Tests assert no dollar figures appear. |
+
+## Privacy: autosave and share links
+
+- **Autosave** keeps the requirements form in your browser's `localStorage`, on your device only. **Clear** removes it. If storage is blocked (some private modes), the app still works; it just doesn't remember the form.
+- **Share links** carry the requirements in the URL fragment: `#r=` followed by the JSON, compressed with deflate and base64url-encoded. Browsers never send the fragment to a server, so the requirements don't reach Vercel or any other host, only the people you give the link to. Anyone with the link can read what you typed, so don't put secrets in the form.
+- Opening a link validates it with the same strict requirements schema the planner uses, with limits on link length and decompressed size. A damaged or edited link shows a message, and the app falls back to your autosaved requirements (or an empty form). A valid link takes priority over the autosave, and the fragment is removed from the address bar once loaded.
+- The report is generated and downloaded in the browser. Nothing is uploaded.
+
+## AWS Architecture Icons
+
+The diagram uses the official [AWS Architecture Icons](https://aws.amazon.com/architecture/icons/). The 40 SVGs needed for the 41-service catalog are vendored, unmodified, in [`vendor/aws-architecture-icons/`](vendor/aws-architecture-icons/NOTICE.md) from the Q3 2026 icon package. AWS publishes these terms on that page (checked 2026-10-01):
+
+> "We allow customers and partners to use these toolkits and assets to create architecture diagrams."
+>
+> "AWS architecture icons are designed to be simple, so you can easily use them in diagrams. You can also put icons in materials like whitepapers, presentations, data sheets, and posters."
+
+The page states no attribution requirement. AWS and the AWS service icons are trademarks of Amazon.com, Inc. or its affiliates, and this project is not affiliated with or endorsed by AWS. The icon files are not covered by this repository's license; see the [NOTICE](vendor/aws-architecture-icons/NOTICE.md) for the package checksum and mapping notes.
+
+How it works: the icons are compiled at build time into a Mermaid icon pack (`web/src/awsIconPack.ts`, using `shared/awsIcons.ts`) that loads together with Mermaid, so there is no runtime fetch. AWS nodes are drawn with Mermaid's flowchart icon shape (`n_fn@{ icon: "aws:lambda", label: "..." }`), still generated only from validated nodes with sanitized labels. Mermaid keeps `securityLevel: 'strict'` and sanitizes icon markup. Icons are inline SVG, so the exported SVG has no external references. People and existing systems keep their plain shapes, and any catalog entry without an icon falls back to a plain box. The **Mermaid source** panel, the API response, and the Markdown report use the icon-free Mermaid, because other Mermaid viewers (GitHub, for example) don't have the AWS icon pack.
 
 ## Setup and running
 
@@ -98,7 +119,7 @@ E2E_URL=http://localhost:4321/ E2E_EXPECT_PLANNER=local npm run e2e
 
 ```bash
 npm run typecheck    # tsc --noEmit over shared, server, web, and tests
-npm test             # vitest: 89 unit, API, client-planner, and bundle tests; no network access, no model calls
+npm test             # vitest: 142 unit, API, client-planner, share, report, icon, and bundle tests; no network access, no model calls
 npm run e2e          # browser checks + screenshots against a running instance (dev server or static build)
 ```
 
@@ -112,9 +133,12 @@ npm run e2e          # browser checks + screenshots against a running instance (
 - **Diagrams render:** generated Mermaid for every sample parses with Mermaid itself (jsdom), including labels containing hostile text.
 - **Determinism and editability:** the same input always produces the same plan, and changing operations, sensitivity, availability, Region, existing systems, or document type changes the plan.
 - **Client/server parity:** the in-browser planner returns the same validated plan as `POST /api/plan` for all three samples, and the same questions and schema errors for incomplete or malformed input. Planner mode selection is covered for every `VITE_PLANNER` / dev / production combination.
+- **Share links:** round-trip for all three samples; empty, garbled, truncated, tampered, oversized, and compression-bomb links are rejected safely, as are schema-invalid payloads (unknown enums, Regions, keys, wrong types, over-long text).
+- **Markdown report:** every section is present for every sample; the Mermaid block equals the generated Mermaid; every URL is a registry source (or the share link); no dollar figures; Markdown, HTML, and link syntax in user or provider text is escaped so it can't change the document structure.
+- **Icons:** every catalog service maps to a vendored icon file (and nothing extra is vendored); icon bodies contain no scripts, images, or external references; icon-mode Mermaid parses for every sample, falls back to plain shapes where there is no icon, and keeps hostile labels contained.
 - **No secrets in the bundle:** a real `vite build` is checked for the Anthropic SDK, `ANTHROPIC_API_KEY`, the Anthropic API host, and the live provider's prompt.
 
-`npm run e2e` (`scripts/e2e-screenshots.mjs`) drives Chromium through `playwright-core` against a running instance (`E2E_URL`, default the dev server). With `E2E_EXPECT_PLANNER=local` it also asserts the planner badge and that no `/api` request is made. It loads each sample, edits requirements and regenerates, exports the SVG, checks the follow-up-question path and guardrails, checks for horizontal overflow at 1440, 1024, and 390 px, fails on console errors, and writes screenshots to `docs/screenshots/`. It uses a locally installed Playwright Chromium build (revision 1243, matching `playwright-core@1.63.0`); run `npx playwright@1.63.0 install chromium` if you do not have one.
+`npm run e2e` (`scripts/e2e-screenshots.mjs`) drives Chromium through `playwright-core` against a running instance (`E2E_URL`, default the dev server). With `E2E_EXPECT_PLANNER=local` it also asserts the planner badge and that no `/api` request is made. It loads each sample and checks the service icons render, edits requirements and regenerates, copies a share link and opens it in a fresh browser context (same plan), reloads to confirm the autosave, downloads the Markdown report and checks its sections, exports the SVG and confirms the icons are embedded inline, checks a tampered link, the clipboard fallback, and blocked `localStorage`, checks the follow-up-question path and guardrails, asserts no request leaves the app's origin, checks for horizontal overflow at 1440, 1024, and 390 px, fails on console errors, and writes screenshots to `docs/screenshots/`. It uses a locally installed Playwright Chromium build (revision 1243, matching `playwright-core@1.63.0`); run `npx playwright@1.63.0 install chromium` if you do not have one.
 
 ## Optional live provider (off by default)
 
@@ -147,9 +171,11 @@ cp .env.example .env    # then set MODEL_PROVIDER=anthropic and ANTHROPIC_API_KE
 - **Citations point to overview pages.** Sources support the general practice cited, not every detail of your specific design.
 - **Source links can change.** URLs were verified on 2026-10-01; AWS may move pages later.
 - **Diagram layout is automatic.** Large plans can be tall; use "Actual size" and scroll, or export the SVG.
-- **No persistence or auth.** Requirements live in the browser tab; refresh clears them.
+- **No accounts or server-side storage.** Requirements autosave only in your browser. Share links hold the requirements, not the generated plan; opening one regenerates the plan, so a link opened against a newer version of the app may produce a different plan.
+- **Some icons are the parent service's icon.** The icon package has no separate icon for ECS on Fargate, Application Load Balancer, Amplify Hosting, Bedrock Knowledge Bases, OpenSearch Serverless, or Q Business, so their parent service's icon is used (listed in the NOTICE).
+- **The report's diagram has no icons.** It uses the portable Mermaid so it renders on GitHub and other Mermaid viewers. Use **Export SVG** for the diagram with icons.
 - **The deployed site is demo-only.** The public Vercel site runs only the rules-based demo planner in your browser. The live Claude provider needs the local server and your own API key; it is not hosted.
-- **Large client bundle.** Mermaid ships to the browser; its diagram types are split into chunks that load on demand, so the first visit downloads more JavaScript than the app itself needs.
+- **Large client bundle.** Mermaid ships to the browser; its diagram types are split into chunks that load on demand, so the first visit downloads more JavaScript than the app itself needs. The AWS icon pack (about 46 kB gzipped) loads with Mermaid, not with the initial page.
 
 ## Project layout
 
@@ -166,9 +192,15 @@ shared/            Logic shared by API, UI, and tests (browser-safe: no Node-onl
   mermaid.ts       Mermaid generation from validated data, with label sanitizing
   service.ts       Pipeline: schema check -> completeness -> guardrails -> provider -> validation -> Mermaid
   scenarios.ts     The three sample scenarios
+  share.ts         Share-link encoding and strict, size-limited decoding
+  report.ts        Markdown design document from a validated plan, with escaping
+  awsIcons.ts      Catalog-to-icon mapping and SVG-to-icon-pack conversion
+  options.ts       Labels for form options and tiers (used by the UI and the report)
 server/            Express API (port 4080) and optional Anthropic provider
 web/               React + Vite workbench (port 5180); src/planner.ts picks in-browser vs API planner
 tests/             Vitest unit and API tests
 scripts/           Browser e2e + screenshot script
+vendor/aws-architecture-icons/  Official AWS Architecture Icons used in diagrams (see NOTICE.md)
 docs/screenshots/  Screenshots captured by `npm run e2e`
+docs/example-report.md, docs/example-architecture.svg  Sample outputs written by `npm run e2e`
 ```
