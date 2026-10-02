@@ -210,7 +210,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   border-radius: var(--radius-ctl); padding: 12px 14px; cursor: pointer; min-height: 88px;
   transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
-.start-sample:hover:not(:disabled) { border-color: var(--accent-strong); background: var(--accent-soft); box-shadow: var(--shadow); }
+@media (hover: hover) { .start-sample:hover:not(:disabled) { border-color: var(--accent-strong); background: var(--accent-soft); box-shadow: var(--shadow); } }
 .start-sample-name { font-size: 14px; font-weight: 700; color: var(--text); }
 .start-sample-blurb { font-size: 13px; color: var(--muted); }
 .start-own { font-size: 13.5px; }
@@ -232,7 +232,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   padding: 5px 12px; font-size: 13px; font-weight: 600; color: var(--text-2); cursor: pointer;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
-.summary-item:hover { border-color: var(--accent-strong); background: var(--accent-soft); }
+@media (hover: hover) { .summary-item:hover { border-color: var(--accent-strong); background: var(--accent-soft); } }
 .summary-count { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); }
 .is-flash { animation: flash 1.4s ease; }
 @keyframes flash { 0%, 40% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: 0 0 0 3px transparent; } }
