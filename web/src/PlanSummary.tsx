@@ -15,7 +15,7 @@ interface Item {
 
 export function summaryItems(plan: Plan): Item[] {
   const items: Item[] = [
-    { key: 'components', count: plan.nodes.length, one: 'component', many: 'components', target: { tab: 'Components' }, hint: 'Show the components tab' },
+    { key: 'components', count: plan.nodes.filter((n) => n.kind === 'aws').length, one: 'AWS component', many: 'AWS components', target: { tab: 'Components' }, hint: 'Show the components tab' },
     { key: 'assumptions', count: plan.assumptions.length, one: 'assumption', many: 'assumptions', target: { section: 'assumptions' }, hint: 'Go to the assumptions in the Assistant panel' },
     { key: 'alternatives', count: plan.alternatives.length, one: 'alternative', many: 'alternatives', target: { tab: 'Alternatives' }, hint: 'Show the alternatives tab' },
     { key: 'open-questions', count: plan.openQuestions.length, one: 'open question', many: 'open questions', target: { section: 'open-questions' }, hint: 'Go to the open questions in the Assistant panel' },

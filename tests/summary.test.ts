@@ -10,7 +10,8 @@ describe('plan summary bar', () => {
     const res = await planFromRequirements(SCENARIOS.find((s) => s.id === id)!.requirements, new DemoProvider());
     if (res.kind !== 'plan') throw new Error('expected a plan');
     const counts = Object.fromEntries(summaryItems(res.plan).map((i) => [i.key, i.count]));
-    expect(counts.components).toBe(res.plan.nodes.length);
+    // Matches the header's AWS-component count; people and existing systems are not AWS components.
+    expect(counts.components).toBe(res.plan.nodes.filter((n) => n.kind === 'aws').length);
     expect(counts.assumptions).toBe(res.plan.assumptions.length);
     expect(counts.alternatives).toBe(res.plan.alternatives.length);
     expect(counts['open-questions']).toBe(res.plan.openQuestions.length);

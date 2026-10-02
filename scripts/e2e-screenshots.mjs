@@ -129,8 +129,8 @@ try {
 
   // Summary bar: counts match the plan and each item jumps to its tab or section with focus
   const summaryText = await page.getByTestId('plan-summary').innerText();
-  const tabCount = await page.locator('.component').count();
-  check(new RegExp(`${tabCount}\\s+components`).test(summaryText), `summary bar counts ${tabCount} components (matches the Components tab)`);
+  const headerAws = Number(((await page.getByText(/AWS components from the supported catalog/).first().innerText()).match(/(\d+) AWS components/) || [])[1]);
+  check(new RegExp(`${headerAws}\\s+AWS components`).test(summaryText), `summary bar counts ${headerAws} AWS components (matches the header)`);
   const assumptionCount = await page.locator('ul.assumptions > li').count();
   check(new RegExp(`${assumptionCount}\\s+assumptions?`).test(summaryText), `summary bar counts ${assumptionCount} assumptions (matches the panel)`);
   await page.getByTestId('summary-alternatives').click();
