@@ -8,9 +8,10 @@ A local workbench for people who understand their business problem but not AWS. 
 
 ## What it does
 
-1. **Requirements discovery.** The left panel captures the purpose, existing systems, expected usage, data sensitivity, AWS Region, availability and recovery needs, budget posture, and operational constraints. A completeness meter shows what is still missing.
-2. **Follow-up questions before design.** If a required answer is missing, the assistant returns questions (with the reason each one matters) instead of guessing an architecture.
-3. **A structured plan.** Once requirements are complete, the plan includes:
+1. **Requirements discovery in plain language.** The left panel asks questions a non-AWS person can answer ("How busy will it be?", "Where are most of your users?", "How much downtime is acceptable?", "How should cost be balanced against other goals?", "Who will look after it day to day?"), with the precise AWS term as a small hint (AWS Region, availability and recovery, budget, operations). Recovery targets (RPO and RTO) are explained in plain words wherever they appear. A completeness meter shows what is still missing.
+2. **"Not sure" is a valid answer.** Usage, data sensitivity, user location, downtime, cost balance, and who runs it accept **Not sure**. It counts as answered; the planner applies a conservative default (below) and the plan lists each one under Assumptions ("You weren't sure about ..., so we assumed ...") with an Edit link. The description and the kind of system have no "Not sure": those must come from you.
+3. **Follow-up questions before design.** If a required answer is missing, the assistant returns questions (with the reason each one matters) instead of guessing an architecture.
+4. **A structured plan.** Once requirements are complete, the plan includes:
    - an architecture diagram drawn with the official AWS Architecture Icons, exportable as a self-contained SVG
    - the selected AWS components and what each one does in this design
    - a step-by-step data-flow explanation
@@ -18,11 +19,30 @@ A local workbench for people who understand their business problem but not AWS. 
    - security, reliability, performance, operations, and cost considerations
    - at least one alternative with its tradeoffs
    - a high-level implementation sequence
-4. **Edit and regenerate.** Change any requirement; the plan is marked stale until you regenerate, and the result visibly changes (for example, switching to "team already uses containers" turns a serverless design into ALB + ECS Fargate + RDS).
-5. **Save and share.** Requirements autosave in your browser and come back on reload. **Copy link** puts the requirements into a link; opening it loads them and generates the same plan. If the browser blocks clipboard access, the link appears in a field you can select and copy.
-6. **Download report (.md).** A self-contained Markdown design document: requirements as entered, the diagram as a Mermaid block, components, data flow, assumptions, open questions, considerations by pillar, alternatives, implementation sequence, cautions, the cited AWS documentation, and the share link. See [`docs/example-report.md`](docs/example-report.md).
 
-Three one-click samples are included: a basic web application, an integration between existing systems (CRM to on-premises ERP), and an AI knowledge assistant.
+   A **summary bar** above the diagram counts the components, assumptions, alternatives, open questions, and cautions. Each count jumps to its tab or Assistant section and moves keyboard focus there.
+5. **Edit and regenerate.** Change any requirement; the plan is marked stale until you regenerate, and the result visibly changes (for example, switching to "team already uses containers" turns a serverless design into ALB + ECS Fargate + RDS).
+6. **Save and share.** Requirements autosave in your browser and come back on reload. **Copy link** puts the requirements into a link; opening it loads them and generates the same plan. If the browser blocks clipboard access, the link appears in a field you can select and copy.
+7. **Download report (.md).** A self-contained Markdown design document: requirements as entered, the diagram as a Mermaid block, components, data flow, assumptions, open questions, considerations by pillar, alternatives, implementation sequence, cautions, the cited AWS documentation, and the share link. See [`docs/example-report.md`](docs/example-report.md).
+
+Three one-click samples are included: a basic web application, an integration between existing systems (CRM to on-premises ERP), and an AI knowledge assistant. Clicking one (in the sidebar, or on the start panel that replaces the empty canvas) fills the form **and** generates the plan immediately.
+
+**On phones** (760 px and narrower) the Generate/Regenerate action is pinned to the bottom of the screen (clear of the home indicator via safe-area insets). After a plan is generated, the form folds into a short "Your requirements" summary with an **Edit requirements** button and the page scrolls to the plan. The diagram starts at actual size with sideways scrolling, because fit-to-width makes the labels unreadable on a phone; **Fit to width** is one tap away.
+
+### "Not sure" defaults
+
+| Question | "Not sure" means | Why this default |
+| --- | --- | --- |
+| How busy will it be? | Quiet, then sudden bursts (`spiky`) | The design scales up for bursts and back down when quiet, instead of guessing a fixed size. |
+| How sensitive is the data? | Confidential (`confidential`) | Never public: sign-in, encryption with your own KMS keys, and a CloudTrail audit trail. Tests assert it is never less protective than public, internal, or confidential. Choose Regulated if it includes health, payment, or government data. |
+| Where are most of your users? | US East (N. Virginia), `us-east-1` | The widest choice of AWS services and Amazon Bedrock models. Change it if users or data-residency rules point elsewhere. |
+| How much downtime is acceptable? | Almost always up (`high`) | Survives the loss of one data center (Multi-AZ) with backups; a multi-Region design is not assumed. |
+| How should cost be balanced? | Keep costs as low as possible (`minimal`) | Favours services that cost little when idle, so an unused system doesn't run up a bill. |
+| Who will look after it? | Small team, AWS manages the servers (`small_team`) | Fully managed services with nothing to patch or size. |
+
+"Not sure" is stored as the value `unsure`. The shared pipeline (`shared/unsure.ts`, called from `shared/service.ts`) replaces it with the default before any provider runs, so the demo and live providers both see ordinary answers. Share links, autosave, and the report keep `unsure` as entered (the report says what was assumed). Links and autosaves made before this option existed contain no `unsure` values and still load unchanged.
+
+![Every allowed question answered "Not sure": each default is listed as an assumption with an Edit link](docs/screenshots/13-not-sure-defaults-1440.png)
 
 ## How it stays honest
 
@@ -119,12 +139,14 @@ E2E_URL=http://localhost:4321/ E2E_EXPECT_PLANNER=local npm run e2e
 
 ```bash
 npm run typecheck    # tsc --noEmit over shared, server, web, and tests
-npm test             # vitest: 142 unit, API, client-planner, share, report, icon, and bundle tests; no network access, no model calls
+npm test             # vitest: 180 unit, API, client-planner, share, report, icon, and bundle tests; no network access, no model calls
 npm run e2e          # browser checks + screenshots against a running instance (dev server or static build)
 ```
 
 `npm test` covers:
 
+- **"Not sure" answers:** each one produces exactly the design of its stated default plus one linked assumption; providers never see `unsure`; data-sensitivity "Not sure" is never less protective than any explicit level; answering "Not sure" everywhere still gives a valid plan; share links made before the option existed still decode; share links, autosave, and the report handle `unsure`. Plain-language labels and RPO/RTO explanations are checked too.
+- **Summary bar:** counts come from the plan data, and empty sections are left out instead of linking nowhere.
 - **Incomplete requirements:** empty or partial input returns follow-up questions and no plan; integrations require existing systems; an unmatched workload type asks instead of guessing.
 - **Unsupported service suggestions:** services outside the catalog are removed, flagged, and never reach the diagram.
 - **Invalid diagram data:** dangling connections, duplicate ids, self-loops, unsafe ids, missing sections, and free-form diagram text are rejected (also through the HTTP API, which returns 422).
@@ -138,7 +160,7 @@ npm run e2e          # browser checks + screenshots against a running instance (
 - **Icons:** every catalog service maps to a vendored icon file (and nothing extra is vendored); icon bodies contain no scripts, images, or external references; icon-mode Mermaid parses for every sample, falls back to plain shapes where there is no icon, and keeps hostile labels contained.
 - **No secrets in the bundle:** a real `vite build` is checked for the Anthropic SDK, `ANTHROPIC_API_KEY`, the Anthropic API host, and the live provider's prompt.
 
-`npm run e2e` (`scripts/e2e-screenshots.mjs`) drives Chromium through `playwright-core` against a running instance (`E2E_URL`, default the dev server). With `E2E_EXPECT_PLANNER=local` it also asserts the planner badge and that no `/api` request is made. It loads each sample and checks the service icons render, edits requirements and regenerates, copies a share link and opens it in a fresh browser context (same plan), reloads to confirm the autosave, downloads the Markdown report and checks its sections, exports the SVG and confirms the icons are embedded inline, checks a tampered link, the clipboard fallback, and blocked `localStorage`, checks the follow-up-question path and guardrails, asserts no request leaves the app's origin, checks for horizontal overflow at 1440, 1024, and 390 px, fails on console errors, and writes screenshots to `docs/screenshots/`. It uses a locally installed Playwright Chromium build (revision 1243, matching `playwright-core@1.63.0`); run `npx playwright@1.63.0 install chromium` if you do not have one.
+`npm run e2e` (`scripts/e2e-screenshots.mjs`) drives Chromium through `playwright-core` against a running instance (`E2E_URL`, default the dev server). With `E2E_EXPECT_PLANNER=local` it also asserts the planner badge and that no `/api` request is made. It checks the start panel and that a sample click generates a plan with no extra click; loads each sample and checks the service icons render; checks every summary-bar jump (mouse and keyboard) and arrow-key tab navigation; answers "Not sure" to every allowed question and checks the six assumptions, their Edit links, the confidential-by-default diagram, the report, and the share link; at 390 px checks the pinned action bar, the collapse-and-scroll after generating, focus on the plan heading, the readable sideways-scrolling diagram, Edit re-opening the form, and that the bar never covers content; edits requirements and regenerates, copies a share link and opens it in a fresh browser context (same plan), reloads to confirm the autosave, downloads the Markdown report and checks its sections, exports the SVG and confirms the icons are embedded inline, checks a tampered link, the clipboard fallback, and blocked `localStorage`, checks the follow-up-question path and guardrails, asserts no request leaves the app's origin, repeats the share-link round trip, autosave reload, report download, and SVG export at 1024 and 390 px, checks for horizontal overflow at 1440, 1024, and 390 px, fails on console errors, and writes screenshots to `docs/screenshots/`. It uses a locally installed Playwright Chromium build (revision 1243, matching `playwright-core@1.63.0`); run `npx playwright@1.63.0 install chromium` if you do not have one.
 
 ## Optional live provider (off by default)
 
@@ -158,7 +180,7 @@ cp .env.example .env    # then set MODEL_PROVIDER=anthropic and ANTHROPIC_API_KE
 - AWS only, single-Region designs (Multi-AZ where availability calls for it).
 - Three reviewed demo patterns: web application, integration between existing systems, AI knowledge assistant.
 - 41 catalog services across edge, compute, data, integration, AI, security, operations, and networking.
-- Requirement options: 14 commercial Regions; usage low, moderate, high, spiky; sensitivity public, internal, confidential, regulated; availability best effort, business hours, high, mission critical; budget minimal, moderate, flexible; operations small team, ops team, containers.
+- Requirement options: 14 commercial Regions; usage low, moderate, high, spiky; sensitivity public, internal, confidential, regulated; availability best effort, business hours, high, mission critical; budget minimal, moderate, flexible; operations small team, ops team, containers. Each of these six questions also accepts "Not sure" (see the defaults table above).
 
 ## Limitations
 
@@ -190,12 +212,13 @@ shared/            Logic shared by API, UI, and tests (browser-safe: no Node-onl
   demoProvider.ts  Deterministic demo provider (templates + rules)
   validate.ts      Plan validation: schema, diagram integrity, catalog, citations
   mermaid.ts       Mermaid generation from validated data, with label sanitizing
-  service.ts       Pipeline: schema check -> completeness -> guardrails -> provider -> validation -> Mermaid
+  service.ts       Pipeline: schema check -> completeness -> guardrails -> "Not sure" defaults -> provider -> validation -> Mermaid
   scenarios.ts     The three sample scenarios
   share.ts         Share-link encoding and strict, size-limited decoding
   report.ts        Markdown design document from a validated plan, with escaping
   awsIcons.ts      Catalog-to-icon mapping and SVG-to-icon-pack conversion
-  options.ts       Labels for form options and tiers (used by the UI and the report)
+  options.ts       Labels for form options, Regions, and tiers (used by the UI and the report)
+  unsure.ts        "Not sure" defaults, resolution, and the assumptions they add
 server/            Express API (port 4080) and optional Anthropic provider
 web/               React + Vite workbench (port 5180); src/planner.ts picks in-browser vs API planner
 tests/             Vitest unit and API tests

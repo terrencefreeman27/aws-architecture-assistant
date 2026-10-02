@@ -1,6 +1,6 @@
 # Web application on AWS (us-east-1)
 
-Generated 2026-10-01T23:35:54.232Z by the AWS Architecture Design Assistant (planner: demo).
+Generated 2026-10-02T00:02:23.346Z by the AWS Architecture Design Assistant (planner: demo).
 
 > **Not production-ready.** This document is a reviewable starting point generated from the stated requirements. It is not production-ready, does not establish compliance, and contains no cost figures. Validate it with your team and a Well-Architected review before building.
 
@@ -10,18 +10,18 @@ A starting-point design for: A customer portal where our clients sign in to view
 
 ## Requirements as entered
 
-- **System description:** A customer portal where our clients sign in to view their orders, download invoices, and update their contact details.
-- **Closest pattern:** Web application
-- **Existing systems and tools:** QuickBooks
-- **Expected usage:** Moderate
-- **Usage details:** About 2,000 registered customers; a few hundred active per day.
-- **Data sensitivity:** Confidential (customer or business data)
-- **AWS Region:** us-east-1
-- **Availability and recovery:** High availability
-- **Recovery targets:** _Not answered_
-- **Budget posture:** Minimal
-- **Operational constraints:** Team already uses containers
-- **Other constraints:** Two developers, comfortable with TypeScript, no dedicated ops staff.
+- **What should the system do?** A customer portal where our clients sign in to view their orders, download invoices, and update their contact details.
+- **What kind of system is it? (closest pattern)** A website or web app
+- **Which existing systems does it connect to?** QuickBooks
+- **How busy will it be? (expected usage)** Moderate
+- **Any numbers you know?** About 2,000 registered customers; a few hundred active per day.
+- **How sensitive is the data?** Confidential: customer or business data
+- **Where are most of your users? (AWS Region)** US East (N. Virginia) · us-east-1
+- **How much downtime is acceptable? (availability and recovery)** Almost always up (high availability)
+- **After a serious failure, how much data could you lose, and for how long could it be down? (RPO and RTO)** _Not answered_
+- **How should cost be balanced against other goals? (budget)** Keep costs as low as possible
+- **Who will look after it day to day? (operations)** We already use containers (Docker etc.)
+- **Anything else we should know?** Two developers, comfortable with TypeScript, no dedicated ops staff.
 
 ## Architecture diagram
 
@@ -97,15 +97,15 @@ flowchart TB
 ## Assumptions
 
 - Users need to sign in because the data is not public. _Change this in: Data sensitivity._
-- No RPO/RTO given; assumed that Multi-AZ resilience within one Region plus backups is acceptable. _Change this in: Recovery targets._
-- Usage based on your notes: "About 2,000 registered customers; a few hundred active per day.". _Change this in: Usage details._
-- All components are deployed in us-east-1; service and feature availability in that Region must be confirmed. _Change this in: AWS Region._
+- No recovery targets given (how much data you could lose and how long you could be down, known as RPO and RTO). Assumed that surviving the loss of one data center (Multi-AZ, within one Region) plus backups is acceptable. _Change this in: Recovery targets._
+- Usage based on your notes: "About 2,000 registered customers; a few hundred active per day.". _Change this in: Usage numbers._
+- All components are deployed in us-east-1; service and feature availability in that Region must be confirmed. _Change this in: User location._
 - Constraint noted: "Two developers, comfortable with TypeScript, no dedicated ops staff.". _Change this in: Other constraints._
 
 ## Open questions
 
 - How should the app connect to QuickBooks: public API, private network, or file exchange?
-- What are the recovery point objective (RPO) and recovery time objective (RTO)? They decide the disaster-recovery strategy.
+- After a serious failure, how much recent data could you afford to lose, and how long could the system be down? These recovery targets (the recovery point objective, RPO, and recovery time objective, RTO) decide the disaster-recovery strategy.
 - Do you need a custom domain? If so, plan DNS (Route 53 or your current provider) and a TLS certificate.
 
 ## Considerations by pillar
@@ -125,7 +125,7 @@ flowchart TB
 - Run tasks in at least two Availability Zones behind the load balancer so a single-AZ failure does not take the service down. (sources: [5], [16])
 - Use a Multi-AZ deployment for the RDS database so a standby can take over if the primary fails. (sources: [7], [17])
 - Use AWS Backup with a defined schedule and retention, and test restores rather than assuming they work. (sources: [14], [17])
-- Choose a disaster-recovery strategy (backup and restore, pilot light, warm standby, or multi-site) from agreed RPO/RTO targets. (sources: [18])
+- Choose a disaster-recovery strategy (backup and restore, pilot light, warm standby, or multi-site) from agreed recovery targets: how much data you can afford to lose (RPO) and how long you can be down (RTO). (sources: [18])
 
 ### Performance efficiency
 
