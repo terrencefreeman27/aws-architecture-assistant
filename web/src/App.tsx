@@ -18,16 +18,15 @@ import { CopyLinkButton, ShareFallback, useShareLink } from './ShareLink';
 import { loadAutosave, saveAutosave } from './storage';
 import { EXPAND_REQUIREMENTS_EVENT, isNarrow } from './options';
 
+const scrollBehavior = (): ScrollBehavior => (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
+
 /** Brings the plan heading into view and moves focus to it (used on narrow screens, where the plan is below the form). */
 function revealPlan() {
   const heading = document.getElementById('plan-heading');
   if (!heading) return;
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  heading.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  heading.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
   heading.focus({ preventScroll: true });
 }
-
-const scrollBehavior = (): ScrollBehavior => (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
 
 /** Scrolls a plan section into view, focuses it, and briefly highlights it so the jump is easy to follow. */
 function jumpTo(container: HTMLElement | null, focusTarget: HTMLElement | null) {
