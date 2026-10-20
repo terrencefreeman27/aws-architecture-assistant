@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "MVP workbench that turns requirements into a reviewable AWS architecture plan with a validated diagram. Demo mode needs no credentials.",
+  "license": "MIT",
   "scripts": {
     "dev": "concurrently -n api,web -c yellow,cyan \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "tsx watch server/index.ts",

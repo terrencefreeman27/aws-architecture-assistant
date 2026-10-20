@@ -70,7 +70,7 @@ The diagram uses the official [AWS Architecture Icons](https://aws.amazon.com/ar
 >
 > "AWS architecture icons are designed to be simple, so you can easily use them in diagrams. You can also put icons in materials like whitepapers, presentations, data sheets, and posters."
 
-The page states no attribution requirement. AWS and the AWS service icons are trademarks of Amazon.com, Inc. or its affiliates, and this project is not affiliated with or endorsed by AWS. The icon files are not covered by this repository's license; see the [NOTICE](vendor/aws-architecture-icons/NOTICE.md) for the package checksum and mapping notes.
+The page states no attribution requirement. AWS and the AWS service icons are trademarks of Amazon.com, Inc. or its affiliates, and this project is not affiliated with or endorsed by AWS. The icon files are **not** covered by this repository's MIT license (see [License](#license)); they remain under AWS's terms. See the [NOTICE](vendor/aws-architecture-icons/NOTICE.md) for the package checksum and mapping notes.
 
 How it works: the icons are compiled at build time into a Mermaid icon pack (`web/src/awsIconPack.ts`, using `shared/awsIcons.ts`) that loads together with Mermaid, so there is no runtime fetch. AWS nodes are drawn with Mermaid's flowchart icon shape (`n_fn@{ icon: "aws:lambda", label: "..." }`), still generated only from validated nodes with sanitized labels. Mermaid keeps `securityLevel: 'strict'` and sanitizes icon markup. Icons are inline SVG, so the exported SVG has no external references. People and existing systems keep their plain shapes, and any catalog entry without an icon falls back to a plain box. The **Mermaid source** panel, the API response, and the Markdown report use the icon-free Mermaid, because other Mermaid viewers (GitHub, for example) don't have the AWS icon pack.
 
@@ -227,3 +227,9 @@ vendor/aws-architecture-icons/  Official AWS Architecture Icons used in diagrams
 docs/screenshots/  Screenshots captured by `npm run e2e`
 docs/example-report.md, docs/example-architecture.svg  Sample outputs written by `npm run e2e`
 ```
+
+## License
+
+The project's own code and documentation are released under the [MIT License](LICENSE), Copyright (c) 2026 Terrence Freemane.
+
+The MIT license does **not** cover the vendored AWS Architecture Icons in [`vendor/aws-architecture-icons/`](vendor/aws-architecture-icons/NOTICE.md). Those files belong to Amazon Web Services and remain under AWS's own terms (quoted in the [NOTICE](vendor/aws-architecture-icons/NOTICE.md)). The same applies to the icon artwork embedded in exported SVG diagrams. AWS and the AWS service names and icons are trademarks of Amazon.com, Inc. or its affiliates.
