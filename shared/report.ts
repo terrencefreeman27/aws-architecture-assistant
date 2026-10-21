@@ -39,7 +39,8 @@ const PILLAR_TITLES: Record<string, string> = {
   cost: 'Cost (drivers, not estimates)',
 };
 
-const REQUIREMENT_ORDER: RequirementField[] = [
+/** Requirement fields in form order. */
+export const REQUIREMENT_ORDER: RequirementField[] = [
   'description',
   'workloadType',
   'existingSystems',

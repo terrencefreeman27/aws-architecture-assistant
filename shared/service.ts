@@ -2,9 +2,19 @@ import { detectCautions, mergeCautions } from './guardrails';
 import { toMermaid } from './mermaid';
 import type { ArchitectureProvider } from './provider';
 import { computeCompleteness, followUpQuestions } from './requirements';
-import { RequirementsSchema, type PlanResponse, type Requirements } from './schema';
+import { RequirementsSchema, type FollowUpQuestion, type PlanResponse, type Requirements, type ValidationIssue } from './schema';
 import { resolveUnsure, unsureAssumptions } from './unsure';
 import { validatePlan } from './validate';
+
+/**
+ * The follow-up questions the pipeline asks before planning: missing required
+ * answers first, then (only once those are answered) the provider's own preflight.
+ * An empty list means the requirements are complete enough to plan.
+ */
+export function questionsFor(req: Requirements, provider: ArchitectureProvider): FollowUpQuestion[] {
+  const completeness = computeCompleteness(req);
+  return [...followUpQuestions(req), ...(completeness.missing.length === 0 ? (provider.preflight?.(req) ?? []) : [])];
+}
 
 /**
  * The single path from requirements to a response, shared by every provider:
@@ -15,7 +25,7 @@ export async function planFromRequirements(req: Requirements, provider: Architec
   const completeness = computeCompleteness(req);
   const cautions = detectCautions(req);
 
-  const questions = [...followUpQuestions(req), ...(completeness.missing.length === 0 ? (provider.preflight?.(req) ?? []) : [])];
+  const questions = questionsFor(req, provider);
   if (questions.length > 0) {
     return { kind: 'questions', provider: provider.name, completeness, questions, cautions };
   }
@@ -58,6 +68,15 @@ export async function planFromRequirements(req: Requirements, provider: Architec
   };
 }
 
+/** Schema-checks untrusted requirements; issues use the same shape as the API's 400 response. */
+export function parseRequirementsInput(
+  input: unknown,
+): { ok: true; requirements: Requirements } | { ok: false; issues: ValidationIssue[] } {
+  const parsed = RequirementsSchema.safeParse(input);
+  if (parsed.success) return { ok: true, requirements: parsed.data };
+  return { ok: false, issues: parsed.error.issues.map((i) => ({ code: 'schema', message: i.message, path: i.path.join('.') })) };
+}
+
 /**
  * Entry point for untrusted input (an HTTP body or browser form state):
  * schema-check the requirements, then run the shared pipeline. Used by both
@@ -68,18 +87,13 @@ export async function planFromInput(
   input: unknown,
   provider: ArchitectureProvider,
 ): Promise<{ status: number; body: PlanResponse }> {
-  const parsed = RequirementsSchema.safeParse(input);
-  if (!parsed.success) {
+  const parsed = parseRequirementsInput(input);
+  if (!parsed.ok) {
     return {
       status: 400,
-      body: {
-        kind: 'error',
-        provider: provider.name,
-        message: 'Requirements failed validation.',
-        issues: parsed.error.issues.map((i) => ({ code: 'schema', message: i.message, path: i.path.join('.') })),
-      },
+      body: { kind: 'error', provider: provider.name, message: 'Requirements failed validation.', issues: parsed.issues },
     };
   }
-  const body = await planFromRequirements(parsed.data, provider);
+  const body = await planFromRequirements(parsed.requirements, provider);
   return { status: body.kind === 'error' ? 422 : 200, body };
 }
