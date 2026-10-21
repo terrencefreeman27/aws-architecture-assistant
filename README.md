@@ -97,6 +97,8 @@ npm run dev:web      # Vite dev server on port 5180, proxies /api to 4080
 
 Ports can be changed with `API_PORT` and `WEB_PORT` (both read by the API and by `vite.config.ts`). The web server uses `strictPort`, so it fails instead of silently moving to another port.
 
+To use the planner from Claude Code, Claude Desktop, or the command line instead of the browser, see [MCP](#use-it-from-claude-code--claude-desktop-mcp) and [CLI](#command-line-aws-arch-plan).
+
 Production build of the front end: `npm run build` (output in repo-root `dist/`). The built site runs the demo planner in the browser and needs no API (see [Deployment](#deployment-static-site-demo-planner-in-the-browser)).
 
 ### Which planner runs
@@ -137,11 +139,78 @@ cd dist && python3 -m http.server 4321      # any plain static server works
 E2E_URL=http://localhost:4321/ E2E_EXPECT_PLANNER=local npm run e2e
 ```
 
+## Use it from Claude Code / Claude Desktop (MCP)
+
+The same planner is available as a local [Model Context Protocol](https://modelcontextprotocol.io) server, so an assistant such as Claude can gather your requirements in conversation and call the planner for you. It runs on your machine over stdio and uses exactly the website's pipeline (same schema check, completeness questions, guardrails, "Not sure" defaults, validation, Mermaid, report, and citations from the curated registry only). It uses the deterministic demo planner only: no network access, no model calls, no AWS credentials, no environment variables.
+
+Setup from a fresh clone (no build step; `bin/aws-arch-mcp.mjs` loads the TypeScript sources through `tsx`, which is a regular dependency):
+
+```bash
+git clone https://github.com/terrencefreeman27/aws-architecture-assistant.git
+cd aws-architecture-assistant
+npm install
+npm run mcp          # optional smoke test: prints a "running on stdio" line to stderr; Ctrl+C to stop
+```
+
+**Claude Code.** Replace `/ABSOLUTE/PATH/TO` with the folder you cloned into (`pwd` prints it):
+
+```bash
+claude mcp add aws-architecture-assistant -- node /ABSOLUTE/PATH/TO/aws-architecture-assistant/bin/aws-arch-mcp.mjs
+```
+
+Add `--scope user` to make it available in every project. `claude mcp list` should show it as connected.
+
+**Claude Desktop.** Add this to `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`; Windows: `%APPDATA%\Claude\claude_desktop_config.json`), then restart Claude Desktop:
+
+```json
+{
+  "mcpServers": {
+    "aws-architecture-assistant": {
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/aws-architecture-assistant/bin/aws-arch-mcp.mjs"]
+    }
+  }
+}
+```
+
+If Claude Desktop cannot find `node` (common with nvm or other version managers), use the absolute path from `which node` as `"command"`.
+
+Tools (all read-only and deterministic):
+
+| Tool | Input | Returns |
+| --- | --- | --- |
+| `get_requirements_schema` | none | Every requirement field: the plain-language question, why it matters, whether it is required, allowed values with labels, and for fields that accept `"unsure"`, the default that will be assumed. |
+| `get_missing_questions` | `requirements` | `complete`, or `needs_more_information` with follow-up questions (field, question, why) and a completeness score. |
+| `plan_architecture` | `requirements` | The validated plan (components, connections, data flow, assumptions, open questions, considerations with source ids, alternatives, steps, cautions), the Mermaid diagram, and validation warnings. Incomplete requirements return the questions instead of a plan. |
+| `export_report` | `requirements` | The same Markdown design document the website downloads, including a share link that opens the requirements on the public demo. |
+| `list_supported_services` | none | The 41-service catalog. |
+| `get_sources` | optional `ids` | Entries from the curated source registry; unknown ids are listed separately, never invented. |
+
+The tool descriptions and server instructions tell the calling model to ask you for missing information instead of inventing it, to present plans as not production-ready, never to quote costs, and to cite only sources the tools return. `requirements` uses the field names and values from `get_requirements_schema` (the same JSON as `aws-arch-plan samples <id>` prints). Invalid values come back as a tool error naming the field; unknown keys are ignored and listed in `ignoredFields`.
+
+## Command line (`aws-arch-plan`)
+
+A thin CLI over the same core, for scripts and quick checks. Run it with `npm run cli -- <command>` or `node bin/aws-arch-plan.mjs <command>` (or `npm link` once to put `aws-arch-plan` on your PATH).
+
+```bash
+node bin/aws-arch-plan.mjs samples                       # list the three samples
+node bin/aws-arch-plan.mjs samples web-app > my.json     # start from a sample, then edit it
+node bin/aws-arch-plan.mjs questions my.json             # what is still missing (JSON)
+node bin/aws-arch-plan.mjs plan my.json                  # plan + Mermaid + warnings (JSON)
+node bin/aws-arch-plan.mjs plan my.json --format md > design.md    # the Markdown design document
+node bin/aws-arch-plan.mjs samples integration | node bin/aws-arch-plan.mjs plan - --format mermaid
+node bin/aws-arch-plan.mjs catalog                       # supported services
+node bin/aws-arch-plan.mjs sources wa-security svc-lambda          # curated sources by id (or all)
+node bin/aws-arch-plan.mjs schema                        # fields, allowed values, "unsure" defaults
+```
+
+Requirements are read as JSON from a file or from stdin (`-`). Exit codes: `0` success; `1` invalid usage, unreadable file, bad JSON, or values that fail validation (the field and reason are printed to stderr); `2` requirements incomplete, with the follow-up questions printed to stderr and nothing on stdout. Unknown fields are ignored with a warning on stderr.
+
 ## Tests
 
 ```bash
 npm run typecheck    # tsc --noEmit over shared, server, web, and tests
-npm test             # vitest: 180 unit, API, client-planner, share, report, icon, and bundle tests; no network access, no model calls
+npm test             # vitest: 221 unit, API, client-planner, share, report, icon, bundle, MCP, and CLI tests; no network access, no model calls
 npm run e2e          # browser checks + screenshots against a running instance (dev server or static build)
 ```
 
@@ -160,9 +229,16 @@ npm run e2e          # browser checks + screenshots against a running instance (
 - **Share links:** round-trip for all three samples; empty, garbled, truncated, tampered, oversized, and compression-bomb links are rejected safely, as are schema-invalid payloads (unknown enums, Regions, keys, wrong types, over-long text).
 - **Markdown report:** every section is present for every sample; the Mermaid block equals the generated Mermaid; every URL is a registry source (or the share link); no dollar figures; Markdown, HTML, and link syntax in user or provider text is escaped so it can't change the document structure.
 - **Icons:** every catalog service maps to a vendored icon file (and nothing extra is vendored); icon bodies contain no scripts, images, or external references; icon-mode Mermaid parses for every sample, falls back to plain shapes where there is no icon, and keeps hostile labels contained.
+- **MCP server:** spun up in-process (SDK in-memory transport) and as a stdio child process through `bin/aws-arch-mcp.mjs`. Every tool is called: `plan_architecture` and `export_report` equal the website's plan, Mermaid, and report for all three samples; incomplete input returns questions and no plan; invalid input, wrong types, and unknown tools return tool errors and the server keeps working; "Not sure" answers become the documented defaults and assumptions; every cited source id exists in the registry; unknown keys are reported; the tool list and input schemas are snapshot-tested, and the descriptions carry the ask-don't-invent, not-production-ready, no-cost-figures, and cite-only-returned-sources rules.
+- **CLI:** every subcommand runs as a child process (`bin/aws-arch-plan.mjs`): plans and reports equal the website's for the samples, stdin and file input, all three output formats, exit code 2 with questions on stderr for incomplete input, exit code 1 for invalid values, bad JSON, missing files, unknown formats, commands, and options.
+- **Core API:** `shared/core.ts` returns the same plan and the same report (including a share link that decodes back to the requirements) as the website's code path.
 - **No secrets in the bundle:** a real `vite build` is checked for the Anthropic SDK, `ANTHROPIC_API_KEY`, the Anthropic API host, and the live provider's prompt.
 
 `npm run e2e` (`scripts/e2e-screenshots.mjs`) drives Chromium through `playwright-core` against a running instance (`E2E_URL`, default the dev server). With `E2E_EXPECT_PLANNER=local` it also asserts the planner badge and that no `/api` request is made. It checks the start panel and that a sample click generates a plan with no extra click; loads each sample and checks the service icons render; checks every summary-bar jump (mouse and keyboard) and arrow-key tab navigation; answers "Not sure" to every allowed question and checks the six assumptions, their Edit links, the confidential-by-default diagram, the report, and the share link; at 390 px checks the pinned action bar, the collapse-and-scroll after generating, focus on the plan heading, the readable sideways-scrolling diagram, Edit re-opening the form, and that the bar never covers content; edits requirements and regenerates, copies a share link and opens it in a fresh browser context (same plan), reloads to confirm the autosave, downloads the Markdown report and checks its sections, exports the SVG and confirms the icons are embedded inline, checks a tampered link, the clipboard fallback, and blocked `localStorage`, checks the follow-up-question path and guardrails, asserts no request leaves the app's origin, repeats the share-link round trip, autosave reload, report download, and SVG export at 1024 and 390 px, checks for horizontal overflow at 1440, 1024, and 390 px, fails on console errors, and writes screenshots to `docs/screenshots/`. It uses a locally installed Playwright Chromium build (revision 1243, matching `playwright-core@1.63.0`); run `npx playwright@1.63.0 install chromium` if you do not have one.
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request to `main`, on Node 22 and 24: `npm ci`, `npm run typecheck`, `npm test` (which includes the client-bundle check), `npm run build`, and `npm audit --omit=dev --audit-level=high`. The Playwright e2e is not run in CI: it needs a specific Chromium build and a running server, and it rewrites the screenshots; run it locally before changing the UI.
 
 ## Optional live provider (off by default)
 
@@ -199,6 +275,7 @@ cp .env.example .env    # then set MODEL_PROVIDER=anthropic and ANTHROPIC_API_KE
 - **Some icons are the parent service's icon.** The icon package has no separate icon for ECS on Fargate, Application Load Balancer, Amplify Hosting, Bedrock Knowledge Bases, OpenSearch Serverless, or Q Business, so their parent service's icon is used (listed in the NOTICE).
 - **The report's diagram has no icons.** It uses the portable Mermaid so it renders on GitHub and other Mermaid viewers. Use **Export SVG** for the diagram with icons.
 - **The deployed site is demo-only.** The public Vercel site runs only the rules-based demo planner in your browser. The live Claude provider needs the local server and your own API key; it is not hosted.
+- **The MCP server and CLI are local and demo-only.** They run on your machine over stdio or the command line, use only the rules-based demo planner (never the live Claude provider), and are not hosted anywhere. They need a clone and `npm install`; the package is not published to npm.
 - **Large client bundle.** Mermaid ships to the browser; its diagram types are split into chunks that load on demand, so the first visit downloads more JavaScript than the app itself needs. The AWS icon pack (about 46 kB gzipped) loads with Mermaid, not with the initial page.
 
 ## Project layout
@@ -221,9 +298,14 @@ shared/            Logic shared by API, UI, and tests (browser-safe: no Node-onl
   awsIcons.ts      Catalog-to-icon mapping and SVG-to-icon-pack conversion
   options.ts       Labels for form options, Regions, and tiers (used by the UI and the report)
   unsure.ts        "Not sure" defaults, resolution, and the assumptions they add
+  core.ts          Small API over the pipeline for the CLI and MCP server (plan, questions, report, catalog, sources, schema, samples)
 server/            Express API (port 4080) and optional Anthropic provider
+mcp/               MCP server (server.ts: tools; stdio.ts: stdio entry point)
+cli/               aws-arch-plan command line (main.ts)
+bin/               Node entry points: aws-arch-mcp.mjs and aws-arch-plan.mjs (load the TypeScript through tsx)
 web/               React + Vite workbench (port 5180); src/planner.ts picks in-browser vs API planner
-tests/             Vitest unit and API tests
+tests/             Vitest unit, API, MCP, and CLI tests
+.github/workflows/ CI (typecheck, tests, build, audit)
 scripts/           Browser e2e + screenshot script
 vendor/aws-architecture-icons/  Official AWS Architecture Icons used in diagrams (see NOTICE.md)
 docs/screenshots/  Screenshots captured by `npm run e2e`
