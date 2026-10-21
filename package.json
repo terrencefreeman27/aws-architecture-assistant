@@ -6,6 +6,7 @@
   "description": "MVP workbench that turns requirements into a reviewable AWS architecture plan with a validated diagram. Demo mode needs no credentials.",
   "license": "MIT",
   "bin": {
+    "aws-arch-plan": "bin/aws-arch-plan.mjs",
     "aws-arch-mcp": "bin/aws-arch-mcp.mjs"
   },
   "scripts": {
@@ -19,7 +20,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "node scripts/e2e-screenshots.mjs",
-    "mcp": "node bin/aws-arch-mcp.mjs"
+    "mcp": "node bin/aws-arch-mcp.mjs",
+    "cli": "node bin/aws-arch-plan.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
