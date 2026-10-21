@@ -19,6 +19,7 @@ export const SERVICE_ICON_FILES: Readonly<Record<string, string>> = {
   'api-gateway': 'Arch_Amazon-API-Gateway_48.svg',
   lambda: 'Arch_AWS-Lambda_48.svg',
   'ecs-fargate': 'Arch_Amazon-Elastic-Container-Service_48.svg',
+  batch: 'Arch_AWS-Batch_48.svg',
   ec2: 'Arch_Amazon-EC2_48.svg',
   alb: 'Arch_Elastic-Load-Balancing_48.svg',
   s3: 'Arch_Amazon-Simple-Storage-Service_48.svg',
@@ -28,7 +29,11 @@ export const SERVICE_ICON_FILES: Readonly<Record<string, string>> = {
   elasticache: 'Arch_Amazon-ElastiCache_48.svg',
   glue: 'Arch_AWS-Glue_48.svg',
   athena: 'Arch_Amazon-Athena_48.svg',
+  'redshift-serverless': 'Arch_Amazon-Redshift_48.svg',
+  'quick-sight': 'Arch_Amazon-Quick_48.svg',
   eventbridge: 'Arch_Amazon-EventBridge_48.svg',
+  'eventbridge-scheduler': 'Arch_Amazon-EventBridge_48.svg',
+  firehose: 'Arch_Amazon-Data-Firehose_48.svg',
   sqs: 'Arch_Amazon-Simple-Queue-Service_48.svg',
   sns: 'Arch_Amazon-Simple-Notification-Service_48.svg',
   'step-functions': 'Arch_AWS-Step-Functions_48.svg',
@@ -89,8 +94,9 @@ export function svgToIconData(svg: string): IconData {
   const viewBox = /viewBox="\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*"/.exec(open[0]);
   if (!viewBox) throw new Error('SVG has no 0-origin viewBox');
 
-  const body = svg
-    .slice(open.index + open[0].length, close)
+  const width = Number(viewBox[1]);
+  const height = Number(viewBox[2]);
+  const body = dropFullViewBoxClips(svg.slice(open.index + open[0].length, close), width, height)
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<title>[\s\S]*?<\/title>|<desc>[\s\S]*?<\/desc>/g, '')
     .replace(/\s+id="[^"]*"/g, '')
@@ -100,7 +106,26 @@ export function svgToIconData(svg: string): IconData {
   if (/<(script|image|foreignObject|use|style|a)\b|\bhref=|\bon[a-z]+=|url\(/i.test(body)) {
     throw new Error('SVG contains disallowed content');
   }
-  return { body, width: Number(viewBox[1]), height: Number(viewBox[2]) };
+  return { body, width, height };
+}
+
+/**
+ * Some newer icons wrap their artwork in a clip path that is exactly the
+ * viewBox (`<clipPath><rect width="64" height="64"/></clipPath>`), which has no
+ * visual effect. Ids are stripped when embedding, so such references would
+ * dangle; remove them. Any other clip path is left alone and then rejected by
+ * the `url(` check, so nothing that changes the artwork is silently dropped.
+ */
+function dropFullViewBoxClips(markup: string, width: number, height: number): string {
+  const defs = /<defs>\s*((?:<clipPath id="[\w-]+">\s*<rect\b[^>]*\/>\s*<\/clipPath>\s*)+)<\/defs>/.exec(markup);
+  if (!defs) return markup;
+  const clips = [...defs[1].matchAll(/<clipPath id="([\w-]+)">\s*<rect\b([^>]*)\/>\s*<\/clipPath>/g)];
+  const isFull = (attrs: string) =>
+    new RegExp(`\\swidth="${width}"`).test(attrs) && new RegExp(`\\sheight="${height}"`).test(attrs) && !/\s(x|y|transform)=/.test(attrs);
+  if (!clips.every((m) => isFull(m[2]))) return markup;
+  let out = markup.replace(defs[0], '');
+  for (const [, id] of clips) out = out.split(` clip-path="url(#${id})"`).join('');
+  return out;
 }
 
 /** Builds the icon pack from vendored file contents keyed by file name. Every mapped file must be present. */

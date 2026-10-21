@@ -21,13 +21,16 @@ export interface Source {
 
 const VERIFIED = '2026-10-01';
 
-const s = (id: string, title: string, url: string, kind: SourceKind): Source => ({
+const s = (id: string, title: string, url: string, kind: SourceKind, verifiedOn: string = VERIFIED): Source => ({
   id,
   title,
   url,
   kind,
-  verifiedOn: VERIFIED,
+  verifiedOn,
 });
+
+/** Entries added with the data-pipeline and scheduled-jobs patterns. */
+const VERIFIED_2 = '2026-10-21';
 
 export const SOURCES = [
   // AWS Well-Architected Framework and pillars
@@ -88,6 +91,11 @@ export const SOURCES = [
   s('svc-datasync', 'What is AWS DataSync?', 'https://docs.aws.amazon.com/datasync/latest/userguide/what-is-datasync.html', 'service-docs'),
   s('svc-glue', 'What is AWS Glue?', 'https://docs.aws.amazon.com/glue/latest/dg/what-is-glue.html', 'service-docs'),
   s('svc-athena', 'What is Amazon Athena?', 'https://docs.aws.amazon.com/athena/latest/ug/what-is.html', 'service-docs'),
+  s('svc-redshift-serverless', 'What is Amazon Redshift Serverless?', 'https://docs.aws.amazon.com/redshift/latest/mgmt/serverless-whatis.html', 'service-docs', VERIFIED_2),
+  s('svc-quick', 'What is Amazon Quick?', 'https://docs.aws.amazon.com/quick/latest/userguide/what-is.html', 'service-docs', VERIFIED_2),
+  s('svc-firehose', 'What is Amazon Data Firehose?', 'https://docs.aws.amazon.com/firehose/latest/dev/what-is-this-service.html', 'service-docs', VERIFIED_2),
+  s('svc-eventbridge-scheduler', 'What is Amazon EventBridge Scheduler?', 'https://docs.aws.amazon.com/scheduler/latest/UserGuide/what-is-scheduler.html', 'service-docs', VERIFIED_2),
+  s('svc-batch', 'What is AWS Batch?', 'https://docs.aws.amazon.com/batch/latest/userguide/what-is-batch.html', 'service-docs', VERIFIED_2),
   s('svc-bedrock', 'Overview - Amazon Bedrock', 'https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-bedrock.html', 'service-docs'),
   s('svc-bedrock-kb', 'Amazon Bedrock Knowledge Bases', 'https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base.html', 'service-docs'),
   s('svc-opensearch-serverless', 'Amazon OpenSearch Serverless', 'https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless.html', 'service-docs'),

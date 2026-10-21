@@ -57,6 +57,15 @@ describe('vendored AWS Architecture Icons', () => {
     expect(() => buildIconPack({})).toThrow(/Missing vendored icon/);
   });
 
+  it('drops only clip paths that equal the viewBox (no visual effect), and still rejects any other clip', () => {
+    const clip = (rect: string) =>
+      `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#c1)"><rect width="64" height="64" fill="#DD344C"/></g><defs><clipPath id="c1">${rect}</clipPath></defs></svg>`;
+    const full = svgToIconData(clip('<rect width="64" height="64" fill="white"/>'));
+    expect(full.body).toBe('<g><rect width="64" height="64" fill="#DD344C"/></g>');
+    expect(() => svgToIconData(clip('<rect width="32" height="64" fill="white"/>'))).toThrow(/disallowed/);
+    expect(() => svgToIconData(clip('<rect x="8" width="64" height="64" fill="white"/>'))).toThrow(/disallowed/);
+  });
+
   it('only names icons for known catalog ids', () => {
     expect(serviceIconName('lambda')).toBe('aws:lambda');
     expect(serviceIconName('not-a-service')).toBeUndefined();

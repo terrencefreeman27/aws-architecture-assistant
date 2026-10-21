@@ -46,6 +46,7 @@ export const CATALOG: readonly CatalogService[] = [
   c('api-gateway', 'Amazon API Gateway', 'compute', 'Managed service for creating, securing, and operating HTTP, REST, and WebSocket APIs.', ['svc-apigateway']),
   c('lambda', 'AWS Lambda', 'compute', 'Runs code in response to events without provisioning or managing servers.', ['svc-lambda']),
   c('ecs-fargate', 'Amazon ECS on AWS Fargate', 'compute', 'Runs containerized services without managing the underlying servers.', ['svc-ecs']),
+  c('batch', 'AWS Batch', 'compute', 'Fully managed batch computing: queues jobs and scales the compute that runs them, including on AWS Fargate.', ['svc-batch']),
   c('ec2', 'Amazon EC2', 'compute', 'Resizable virtual servers when full control over the operating system is required.', ['svc-ec2']),
   c('alb', 'Application Load Balancer', 'network', 'Distributes HTTP(S) traffic across targets such as containers or instances in multiple Availability Zones.', ['svc-alb']),
 
@@ -57,9 +58,13 @@ export const CATALOG: readonly CatalogService[] = [
   c('elasticache', 'Amazon ElastiCache', 'data', 'Managed in-memory cache to reduce latency and database load.', ['svc-elasticache']),
   c('glue', 'AWS Glue', 'data', 'Serverless data integration (ETL) service for preparing and moving data.', ['svc-glue']),
   c('athena', 'Amazon Athena', 'data', 'Serverless SQL queries over data stored in Amazon S3.', ['svc-athena']),
+  c('redshift-serverless', 'Amazon Redshift Serverless', 'data', 'Serverless data warehouse for analytics queries, without managing clusters.', ['svc-redshift-serverless']),
+  c('quick-sight', 'Amazon Quick Sight', 'data', 'Business intelligence dashboards and reports; part of Amazon Quick, which evolved from Amazon QuickSight.', ['svc-quick']),
 
   // Integration
   c('eventbridge', 'Amazon EventBridge', 'integration', 'Serverless event bus and scheduler that routes events between applications and services.', ['svc-eventbridge']),
+  c('eventbridge-scheduler', 'Amazon EventBridge Scheduler', 'integration', 'Creates recurring (cron or rate) and one-time schedules that invoke AWS targets, with retry limits.', ['svc-eventbridge-scheduler']),
+  c('firehose', 'Amazon Data Firehose', 'integration', 'Fully managed delivery of real-time streaming data to destinations such as Amazon S3.', ['svc-firehose']),
   c('sqs', 'Amazon SQS', 'integration', 'Managed message queues that decouple producers from consumers.', ['svc-sqs']),
   c('sns', 'Amazon SNS', 'integration', 'Publish/subscribe messaging and notifications.', ['svc-sns']),
   c('step-functions', 'AWS Step Functions', 'integration', 'Visual workflow orchestration with built-in retries and error handling.', ['svc-stepfunctions']),
