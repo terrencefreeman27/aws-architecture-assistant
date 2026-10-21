@@ -1,5 +1,7 @@
 # AWS Architecture Design Assistant (MVP)
 
+[![CI](https://github.com/terrencefreeman27/aws-architecture-assistant/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/terrencefreeman27/aws-architecture-assistant/actions/workflows/ci.yml)
+
 A local workbench for people who understand their business problem but not AWS. You describe the system you need, the assistant checks whether it has enough information, asks focused follow-up questions if it does not, and then produces a **reviewable** AWS architecture plan with a diagram.
 
 > This is a planning aid. It never creates AWS resources, never asks for AWS credentials, and its plans are **not production-ready**. Treat every plan as a starting point for review.
