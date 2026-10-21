@@ -7,6 +7,7 @@ import { REQUIREMENT_ORDER, planToMarkdown, reportFileName } from './report';
 import { FIELD_META, MIN_DESCRIPTION_LENGTH, computeCompleteness, requiredFields } from './requirements';
 import { SCENARIOS, getScenario, type Scenario } from './scenarios';
 import {
+  DIAGRAM_LABEL_MAX,
   EMPTY_REQUIREMENTS,
   RequirementsSchema,
   type Caution,
@@ -112,8 +113,22 @@ export interface RequirementFieldInfo {
   type: 'text' | 'choice';
   maxLength?: number;
   minLength?: number;
+  /** Extra guidance for callers, e.g. how a text answer is used in the diagram. */
+  format?: string;
   options?: { value: string; label: string }[];
   notSure?: { value: typeof UNSURE; defaultValue: string; defaultLabel: string; assumption: string };
+}
+
+/** Max existing systems the planner places in a diagram. */
+export const MAX_EXISTING_SYSTEMS = 4;
+
+export const EXISTING_SYSTEMS_FORMAT = `Comma-separated system names, source first when data moves between systems (e.g. "Salesforce, On-premises ERP"). Up to ${MAX_EXISTING_SYSTEMS} are used. Each name becomes a diagram label of at most ${DIAGRAM_LABEL_MAX} characters; longer names are shortened with "..." in the diagram, so keep each name short and put details in the description.`;
+
+/** Every input length limit, in one sentence, for tool descriptions. Derived from the schema so it cannot drift. */
+export function lengthLimitsText(): string {
+  const json = z.toJSONSchema(RequirementsSchema, { io: 'input' }) as { properties: Record<string, { maxLength?: number }> };
+  const limits = REQUIREMENT_ORDER.filter((f) => json.properties[f]?.maxLength).map((f) => `${f} ${json.properties[f].maxLength}`);
+  return `Length limits (characters): ${limits.join(', ')}; description needs at least ${MIN_DESCRIPTION_LENGTH}. Longer text is rejected as invalid. Each existing-system name becomes a diagram label of at most ${DIAGRAM_LABEL_MAX} characters (longer names are shortened in the diagram).`;
 }
 
 /** Field list for callers that need to ask the user for requirements. */
@@ -137,6 +152,7 @@ export function getRequirementsSchema() {
     if (options) info.options = options.map((o) => ({ ...o }));
     else info.maxLength = json.properties[name]?.maxLength;
     if (name === 'description') info.minLength = MIN_DESCRIPTION_LENGTH;
+    if (name === 'existingSystems') info.format = EXISTING_SYSTEMS_FORMAT;
     if (isUnsureField(name)) {
       const d = UNSURE_DEFAULTS[name];
       info.notSure = { value: UNSURE, defaultValue: d.value, defaultLabel: unsureDefaultLabel(name), assumption: d.assumption };
@@ -149,6 +165,9 @@ export function getRequirementsSchema() {
       'Choice fields accept only the listed values. Fields with a notSure entry also accept "unsure": the planner uses the stated default and lists it as an assumption.',
       'description, workloadType, and existingSystems have no "unsure" option; they must come from the user.',
       'Unknown keys are ignored.',
+      lengthLimitsText(),
+      `existingSystems: ${EXISTING_SYSTEMS_FORMAT}`,
+      'Plans include alternatives. When an alternative has variant.kind "diagram", it was re-planned from the listed requirement changes and validated like the main plan; applying variant.changes to the requirements reproduces it. Otherwise variant.kind is "text_only" with the reason.',
     ],
     fields,
     jsonSchema: json,

@@ -5,6 +5,7 @@ import {
   exportReport,
   getRequirementsSchema,
   getSources,
+  lengthLimitsText,
   listSupportedServices,
   missingQuestions,
   planArchitecture,
@@ -33,7 +34,7 @@ export const SERVER_INSTRUCTIONS = `Turns business requirements into a reviewabl
 const requirementsArg = {
   // loose(): same validation, but unknown keys reach the handler so they can be reported (the core still ignores them).
   requirements: RequirementsSchema.loose().describe(
-    'The requirements as answered by the user. Use the exact field names and allowed values from get_requirements_schema. Empty string means not answered. Choice fields marked notSure in the schema also accept "unsure".',
+    `The requirements as answered by the user. Use the exact field names and allowed values from get_requirements_schema. Empty string means not answered. Choice fields marked notSure in the schema also accept "unsure". ${lengthLimitsText()}`,
   ),
 };
 
@@ -75,7 +76,7 @@ export function createMcpServer(): McpServer {
     {
       title: 'Requirements fields',
       description:
-        'Lists every requirement field: plain-language label and question to ask the user, why it matters, whether it is required, allowed values with labels, and for choice fields that accept "unsure", the safe default the planner will assume. Call this first so you know what to ask. ' +
+        'Lists every requirement field: plain-language label and question to ask the user, why it matters, whether it is required, allowed values with labels, text length limits, and for choice fields that accept "unsure", the safe default the planner will assume. Call this first so you know what to ask. ' +
         RULES,
       annotations: READ_ONLY,
     },
@@ -110,7 +111,7 @@ export function createMcpServer(): McpServer {
     {
       title: 'Plan an AWS architecture',
       description:
-        'Generates a reviewable AWS architecture plan from complete requirements: validated components, connections, data flow, assumptions (including any "unsure" defaults), open questions, Well-Architected considerations with source ids, alternatives, implementation steps, cautions, validation warnings, and a Mermaid flowchart generated from the validated data. If requirements are incomplete it returns status "needs_more_information" with questions instead of a plan; ask the user, do not guess. ' +
+        'Generates a reviewable AWS architecture plan from complete requirements: validated components, connections, data flow, assumptions (including any "unsure" defaults), open questions, Well-Architected considerations with source ids, alternatives (each with a variant: either a validated diagram of that alternative with its own Mermaid, the requirement changes that produce it, and the components it adds and removes, or text_only with the reason), implementation steps, cautions, validation warnings, and a Mermaid flowchart generated from the validated data. If requirements are incomplete it returns status "needs_more_information" with questions instead of a plan; ask the user, do not guess. ' +
         RULES,
       inputSchema: requirementsArg,
       annotations: READ_ONLY,
@@ -140,7 +141,7 @@ export function createMcpServer(): McpServer {
     {
       title: 'Markdown design document',
       description:
-        'Returns the same self-contained Markdown design document the website downloads: requirements as entered, Mermaid diagram, components, data flow, assumptions, open questions, considerations by pillar, alternatives, implementation sequence, cautions, cited AWS documentation (registry sources only), and a share link that opens the requirements on the public demo site. The link carries the requirements in the URL fragment, so do not use it for secrets. If requirements are incomplete it returns questions instead; ask the user. ' +
+        'Returns the same self-contained Markdown design document the website downloads: requirements as entered, Mermaid diagram, components, data flow, assumptions, open questions, considerations by pillar, alternatives (with the Mermaid diagram and what-changes list of each drawn alternative), implementation sequence, cautions, cited AWS documentation (registry sources only), and a share link that opens the requirements on the public demo site. The link carries the requirements in the URL fragment, so do not use it for secrets. If requirements are incomplete it returns questions instead; ask the user. ' +
         RULES,
       inputSchema: requirementsArg,
       annotations: READ_ONLY,

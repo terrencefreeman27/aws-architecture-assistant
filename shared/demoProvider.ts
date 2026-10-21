@@ -1,6 +1,7 @@
 import { getService } from './catalog';
 import type { AlternativeSpec, ArchitectureProvider } from './provider';
 import { resolveUnsure } from './unsure';
+import { DIAGRAM_LABEL_MAX } from './schema';
 import type {
   Alternative,
   Assumption,
@@ -67,9 +68,8 @@ function quote(value: string, max: number): string {
   return v.length > max ? `${v.slice(0, max - 3).trimEnd()}...` : v;
 }
 
-/** Diagram labels are limited to 60 characters (NodeSchema); longer names are shortened, never rejected. */
-const LABEL_MAX = 60;
-const clipLabel = (value: string) => quote(value, LABEL_MAX);
+/** Diagram labels are limited to DIAGRAM_LABEL_MAX characters (NodeSchema); longer names are shortened, never rejected. */
+const clipLabel = (value: string) => quote(value, DIAGRAM_LABEL_MAX);
 
 function addNote(req: Requirements, note: string): AlternativeSpec {
   const current = req.operationsNotes.trim();

@@ -3,7 +3,7 @@
 exports[`MCP server (in-memory) > lists the expected tools with stable schemas 1`] = `
 [
   {
-    "description": "Lists every requirement field: plain-language label and question to ask the user, why it matters, whether it is required, allowed values with labels, and for choice fields that accept "unsure", the safe default the planner will assume. Call this first so you know what to ask. Ask the user for any missing or unclear requirement; never invent an answer on their behalf. "unsure" is allowed only when the user actually says they are not sure. Plans are reviewable starting points and are NOT production-ready. Say so when presenting one. Never state cost figures or prices; the plans describe cost drivers only. Point users to AWS Pricing Calculator for estimates. Cite only sources returned by these tools (registry ids and URLs). Do not add other links or claims of compliance.",
+    "description": "Lists every requirement field: plain-language label and question to ask the user, why it matters, whether it is required, allowed values with labels, text length limits, and for choice fields that accept "unsure", the safe default the planner will assume. Call this first so you know what to ask. Ask the user for any missing or unclear requirement; never invent an answer on their behalf. "unsure" is allowed only when the user actually says they are not sure. Plans are reviewable starting points and are NOT production-ready. Say so when presenting one. Never state cost figures or prices; the plans describe cost drivers only. Point users to AWS Pricing Calculator for estimates. Cite only sources returned by these tools (registry ids and URLs). Do not add other links or claims of compliance.",
     "inputSchema": {
       "properties": {},
       "type": "object",
@@ -17,7 +17,7 @@ exports[`MCP server (in-memory) > lists the expected tools with stable schemas 1
       "properties": {
         "requirements": {
           "additionalProperties": {},
-          "description": "The requirements as answered by the user. Use the exact field names and allowed values from get_requirements_schema. Empty string means not answered. Choice fields marked notSure in the schema also accept "unsure".",
+          "description": "The requirements as answered by the user. Use the exact field names and allowed values from get_requirements_schema. Empty string means not answered. Choice fields marked notSure in the schema also accept "unsure". Length limits (characters): description 2000, existingSystems 1000, usageNotes 500, recoveryNotes 500, operationsNotes 500; description needs at least 20. Longer text is rejected as invalid. Each existing-system name becomes a diagram label of at most 60 characters (longer names are shortened in the diagram).",
           "properties": {
             "availability": {
               "anyOf": [
@@ -216,13 +216,13 @@ exports[`MCP server (in-memory) > lists the expected tools with stable schemas 1
     "name": "get_missing_questions",
   },
   {
-    "description": "Generates a reviewable AWS architecture plan from complete requirements: validated components, connections, data flow, assumptions (including any "unsure" defaults), open questions, Well-Architected considerations with source ids, alternatives, implementation steps, cautions, validation warnings, and a Mermaid flowchart generated from the validated data. If requirements are incomplete it returns status "needs_more_information" with questions instead of a plan; ask the user, do not guess. Ask the user for any missing or unclear requirement; never invent an answer on their behalf. "unsure" is allowed only when the user actually says they are not sure. Plans are reviewable starting points and are NOT production-ready. Say so when presenting one. Never state cost figures or prices; the plans describe cost drivers only. Point users to AWS Pricing Calculator for estimates. Cite only sources returned by these tools (registry ids and URLs). Do not add other links or claims of compliance.",
+    "description": "Generates a reviewable AWS architecture plan from complete requirements: validated components, connections, data flow, assumptions (including any "unsure" defaults), open questions, Well-Architected considerations with source ids, alternatives (each with a variant: either a validated diagram of that alternative with its own Mermaid, the requirement changes that produce it, and the components it adds and removes, or text_only with the reason), implementation steps, cautions, validation warnings, and a Mermaid flowchart generated from the validated data. If requirements are incomplete it returns status "needs_more_information" with questions instead of a plan; ask the user, do not guess. Ask the user for any missing or unclear requirement; never invent an answer on their behalf. "unsure" is allowed only when the user actually says they are not sure. Plans are reviewable starting points and are NOT production-ready. Say so when presenting one. Never state cost figures or prices; the plans describe cost drivers only. Point users to AWS Pricing Calculator for estimates. Cite only sources returned by these tools (registry ids and URLs). Do not add other links or claims of compliance.",
     "inputSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
         "requirements": {
           "additionalProperties": {},
-          "description": "The requirements as answered by the user. Use the exact field names and allowed values from get_requirements_schema. Empty string means not answered. Choice fields marked notSure in the schema also accept "unsure".",
+          "description": "The requirements as answered by the user. Use the exact field names and allowed values from get_requirements_schema. Empty string means not answered. Choice fields marked notSure in the schema also accept "unsure". Length limits (characters): description 2000, existingSystems 1000, usageNotes 500, recoveryNotes 500, operationsNotes 500; description needs at least 20. Longer text is rejected as invalid. Each existing-system name becomes a diagram label of at most 60 characters (longer names are shortened in the diagram).",
           "properties": {
             "availability": {
               "anyOf": [
@@ -421,13 +421,13 @@ exports[`MCP server (in-memory) > lists the expected tools with stable schemas 1
     "name": "plan_architecture",
   },
   {
-    "description": "Returns the same self-contained Markdown design document the website downloads: requirements as entered, Mermaid diagram, components, data flow, assumptions, open questions, considerations by pillar, alternatives, implementation sequence, cautions, cited AWS documentation (registry sources only), and a share link that opens the requirements on the public demo site. The link carries the requirements in the URL fragment, so do not use it for secrets. If requirements are incomplete it returns questions instead; ask the user. Ask the user for any missing or unclear requirement; never invent an answer on their behalf. "unsure" is allowed only when the user actually says they are not sure. Plans are reviewable starting points and are NOT production-ready. Say so when presenting one. Never state cost figures or prices; the plans describe cost drivers only. Point users to AWS Pricing Calculator for estimates. Cite only sources returned by these tools (registry ids and URLs). Do not add other links or claims of compliance.",
+    "description": "Returns the same self-contained Markdown design document the website downloads: requirements as entered, Mermaid diagram, components, data flow, assumptions, open questions, considerations by pillar, alternatives (with the Mermaid diagram and what-changes list of each drawn alternative), implementation sequence, cautions, cited AWS documentation (registry sources only), and a share link that opens the requirements on the public demo site. The link carries the requirements in the URL fragment, so do not use it for secrets. If requirements are incomplete it returns questions instead; ask the user. Ask the user for any missing or unclear requirement; never invent an answer on their behalf. "unsure" is allowed only when the user actually says they are not sure. Plans are reviewable starting points and are NOT production-ready. Say so when presenting one. Never state cost figures or prices; the plans describe cost drivers only. Point users to AWS Pricing Calculator for estimates. Cite only sources returned by these tools (registry ids and URLs). Do not add other links or claims of compliance.",
     "inputSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
         "requirements": {
           "additionalProperties": {},
-          "description": "The requirements as answered by the user. Use the exact field names and allowed values from get_requirements_schema. Empty string means not answered. Choice fields marked notSure in the schema also accept "unsure".",
+          "description": "The requirements as answered by the user. Use the exact field names and allowed values from get_requirements_schema. Empty string means not answered. Choice fields marked notSure in the schema also accept "unsure". Length limits (characters): description 2000, existingSystems 1000, usageNotes 500, recoveryNotes 500, operationsNotes 500; description needs at least 20. Longer text is rejected as invalid. Each existing-system name becomes a diagram label of at most 60 characters (longer names are shortened in the diagram).",
           "properties": {
             "availability": {
               "anyOf": [

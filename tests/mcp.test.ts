@@ -66,6 +66,22 @@ describe('MCP server (in-memory)', () => {
     expect(drawn.changes[0]).toEqual(expect.objectContaining({ field: 'operationsNotes', value: expect.any(String), label: expect.any(String) }));
   });
 
+  it('documents the text length limits, including the 60-character diagram label limit, before callers hit them', async () => {
+    const { tools } = await client.listTools();
+    const plan = tools.find((t) => t.name === 'plan_architecture')!;
+    const reqDesc = (plan.inputSchema.properties as any).requirements.description as string;
+    expect(reqDesc).toMatch(/description 2000, existingSystems 1000, usageNotes 500, recoveryNotes 500, operationsNotes 500/);
+    expect(reqDesc).toMatch(/at most 60 characters/);
+    const schema = (await call('get_requirements_schema')).structuredContent;
+    expect(schema.notes.join(' ')).toMatch(/at most 60 characters/);
+    expect(schema.fields.find((f: any) => f.name === 'existingSystems').format).toMatch(/Comma-separated[\s\S]*60 characters/);
+    // A long system name is shortened, not rejected.
+    const long = 'On-premises ERP (SQL Server 2019) in our Atlanta data center, run by our IT team';
+    const r = await call('plan_architecture', { requirements: { ...SCENARIOS[1].requirements, existingSystems: `${long}, Salesforce` } });
+    expect(r.isError).toBeFalsy();
+    expect(r.structuredContent.status).toBe('plan');
+  });
+
   it('server instructions carry the same rules', () => {
     const instructions = client.getInstructions() ?? '';
     expect(instructions).toMatch(/never invent/i);

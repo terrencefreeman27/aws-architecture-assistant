@@ -85,12 +85,15 @@ export const NodeIdSchema = z
 
 export const TIERS = ['users', 'edge', 'app', 'integration', 'data', 'ai', 'security', 'operations', 'external'] as const;
 
+/** Maximum length of a diagram label (component or existing-system name). */
+export const DIAGRAM_LABEL_MAX = 60;
+
 export const NodeSchema = z.object({
   id: NodeIdSchema,
   kind: z.enum(['aws', 'external', 'actor']),
   /** Catalog id; required when kind is "aws". */
   serviceId: z.string().optional(),
-  label: z.string().min(1).max(60),
+  label: z.string().min(1).max(DIAGRAM_LABEL_MAX),
   role: z.string().min(1).max(400),
   tier: z.enum(TIERS),
   sourceIds: z.array(z.string()).default([]),
