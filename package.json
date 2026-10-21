@@ -5,6 +5,9 @@
   "type": "module",
   "description": "MVP workbench that turns requirements into a reviewable AWS architecture plan with a validated diagram. Demo mode needs no credentials.",
   "license": "MIT",
+  "bin": {
+    "aws-arch-mcp": "bin/aws-arch-mcp.mjs"
+  },
   "scripts": {
     "dev": "concurrently -n api,web -c yellow,cyan \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "tsx watch server/index.ts",
@@ -15,14 +18,17 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "node scripts/e2e-screenshots.mjs"
+    "e2e": "node scripts/e2e-screenshots.mjs",
+    "mcp": "node bin/aws-arch-mcp.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "express": "^5.2.1",
     "mermaid": "^12.2.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "tsx": "^4.23.15",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -34,7 +40,6 @@
     "concurrently": "^10.0.5",
     "jsdom": "^29.1.1",
     "playwright-core": "1.63.0",
-    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vite": "^8.3.2",
     "vitest": "^4.1.12"
