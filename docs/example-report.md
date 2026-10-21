@@ -1,6 +1,6 @@
 # Web application on AWS (us-east-1)
 
-Generated 2026-10-02T00:05:02.902Z by the AWS Architecture Design Assistant (planner: demo).
+Generated 2026-10-21T19:29:13.456Z by the AWS Architecture Design Assistant (planner: demo).
 
 > **Not production-ready.** This document is a reviewable starting point generated from the stated requirements. It is not production-ready, does not establish compliance, and contains no cost figures. Validate it with your team and a Well-Architected review before building.
 
@@ -160,6 +160,57 @@ Costs:
 - Per-request pricing can cost more than containers at sustained high volume.
 - Function cold starts may add latency to some requests.
 
+Diagram of this alternative, generated the same way from its own validated components:
+
+```mermaid
+flowchart TB
+  n_users(["Users"])
+  n_cdn["Amazon CloudFront"]
+  n_static_site[("S3 static assets")]
+  n_waf["AWS WAF"]
+  n_auth["Amazon Cognito"]
+  n_api["Amazon API Gateway"]
+  n_fn["Lambda functions"]
+  n_db[("DynamoDB tables")]
+  n_ext_1[["QuickBooks"]]
+  n_users -->|"HTTPS"| n_cdn
+  n_cdn -->|"static assets"| n_static_site
+  n_waf -->|"protects"| n_cdn
+  n_users -->|"sign in"| n_auth
+  n_cdn -->|"/api"| n_api
+  n_api --> n_fn
+  n_fn -->|"read / write"| n_db
+  n_api -->|"verify tokens"| n_auth
+  n_fn -->|"integrates"| n_ext_1
+  subgraph cross_cutting["Cross-cutting services"]
+    n_iam["AWS IAM"]
+    n_kms["AWS KMS"]
+    n_cloudtrail["AWS CloudTrail"]
+    n_cloudwatch["Amazon CloudWatch"]
+    n_backup["AWS Backup"]
+    n_iam ~~~ n_kms ~~~ n_cloudtrail
+    n_cloudwatch ~~~ n_backup
+  end
+  classDef aws fill:#ffffff,stroke:#ff9900,stroke-width:2px,color:#16191f
+  classDef external fill:#eef2f7,stroke:#5f6b7a,stroke-dasharray:4 3,color:#16191f
+  classDef actor fill:#232f3e,stroke:#232f3e,color:#ffffff
+  class n_cdn,n_static_site,n_waf,n_auth,n_api,n_fn,n_db,n_iam,n_kms,n_cloudtrail,n_cloudwatch,n_backup aws
+  class n_ext_1 external
+  class n_users actor
+```
+
+What changes compared with the recommended design:
+
+- Answer changed: Who runs it: Small team: let AWS manage the servers
+- Added: **Amazon API Gateway**
+- Added: **Lambda functions** (AWS Lambda)
+- Added: **DynamoDB tables** (Amazon DynamoDB)
+- Removed: **Application Load Balancer**
+- Removed: **ECS Fargate service** (Amazon ECS on AWS Fargate)
+- Removed: **RDS database** (Amazon RDS)
+- Removed: **AWS Secrets Manager**
+- Removed: **VPC (private subnets)** (Amazon VPC)
+
 ### AWS Amplify Hosting for the front end
 
 Use Amplify Hosting for build, deploy, and hosting of the front end instead of wiring S3 and CloudFront yourself. (sources: [29])
@@ -173,6 +224,8 @@ Costs:
 
 - Less fine-grained control over caching and edge behaviour.
 - Another service and deployment model to learn.
+
+_Not drawn as a diagram: It changes how the front end is built and deployed rather than the parts of the design, and none of your answers selects it, so the planner does not draw it._
 
 ## Implementation sequence
 

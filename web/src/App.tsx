@@ -5,6 +5,8 @@ import { EMPTY_REQUIREMENTS, type PlanResponse, type Requirements } from '../../
 import { getScenario } from '../../shared/scenarios';
 import { planToMarkdown, reportFileName } from '../../shared/report';
 import { buildShareUrl, decodeRequirements, readShareHash } from '../../shared/share';
+import { applyChanges } from '../../shared/variants';
+import { DiagramToggle, WhatChanges, drawnVariant } from './AlternativeView';
 import { PlanningApiError } from './api';
 import { AssistantPanel } from './AssistantPanel';
 import { DiagramCanvas } from './DiagramCanvas';
@@ -59,6 +61,8 @@ export function App() {
   const [linkNotice, setLinkNotice] = useState('');
   const [tab, setTab] = useState<PlanTab>('Components');
   const [collapsed, setCollapsed] = useState(false);
+  /** Index of the alternative drawn in the diagram, or null for the recommended design. */
+  const [shownAlt, setShownAlt] = useState<number | null>(null);
   const booted = useRef(false);
   const hydrated = useRef(false);
   const share = useShareLink(requirements);
@@ -88,6 +92,7 @@ export function App() {
       const result = await planWith(forced ?? (await getMode()), req);
       setResponse(result);
       setGeneratedFor(req);
+      setShownAlt(null);
     } catch (err) {
       setApiFailed(err instanceof PlanningApiError);
       setRequestError(err instanceof Error ? err.message : 'The planner failed unexpectedly.');
@@ -179,7 +184,25 @@ export function App() {
   };
 
   const plan = response?.kind === 'plan' ? response : null;
-  const iconSource = useMemo(() => (plan ? toMermaid(plan.plan, { icons: true }) : ''), [plan]);
+  const shown = plan && shownAlt !== null ? plan.plan.alternatives[shownAlt] : undefined;
+  const variant = drawnVariant(shown);
+  const iconSource = useMemo(() => (plan ? toMermaid(variant ?? plan.plan, { icons: true }) : ''), [plan, variant]);
+
+  /** Shows an alternative's diagram (from the Alternatives tab) and brings the diagram into view. */
+  const viewAlternative = (index: number) => {
+    setShownAlt(index);
+    window.requestAnimationFrame(() => jumpTo(document.getElementById('diagram-card'), document.getElementById('what-changes-heading')));
+  };
+
+  /** Applies the alternative's changed answer to the requirements behind the plan on screen, then regenerates. */
+  const adoptAlternative = () => {
+    const v = drawnVariant(shown);
+    if (!v || !generatedFor) return;
+    const next = applyChanges(generatedFor, v.changes);
+    setRequirements(next);
+    setActiveScenario(null);
+    void generate(next, { reveal: true });
+  };
 
   /** The report describes the plan on screen, so it uses the requirements that plan was generated from. */
   const downloadReport = async () => {
@@ -281,8 +304,19 @@ export function App() {
         ) : plan ? (
           <div className={`plan-area${loading ? ' is-loading' : ''}`}>
             <PlanSummary plan={plan.plan} onJump={jump} />
-            <DiagramCanvas iconSource={iconSource} portableSource={plan.mermaid} title={plan.plan.title} />
-            <PlanDetails plan={plan.plan} tab={tab} onTabChange={setTab} />
+            <DiagramCanvas
+              iconSource={iconSource}
+              portableSource={variant ? variant.mermaid : plan.mermaid}
+              title={shown && variant ? `${plan.plan.title} alternative ${shown.title}` : plan.plan.title}
+              label={shown && variant ? `Alternative: ${shown.title}` : 'Architecture diagram: recommended design'}
+              header={
+                <>
+                  <DiagramToggle alternatives={plan.plan.alternatives} shown={variant ? shownAlt : null} onShow={setShownAlt} />
+                  {shown && variant && <WhatChanges alternative={shown} onUse={adoptAlternative} onBack={() => setShownAlt(null)} stale={stale} loading={loading} />}
+                </>
+              }
+            />
+            <PlanDetails plan={plan.plan} tab={tab} onTabChange={setTab} shownAlt={variant ? shownAlt : null} onViewAlternative={viewAlternative} />
             <p className="disclaimer">
               This plan is a reviewable starting point generated from your stated requirements. It is not production-ready, does not establish compliance, and contains no cost figures. Validate it with your team and a Well-Architected review.
             </p>

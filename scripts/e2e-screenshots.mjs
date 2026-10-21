@@ -8,6 +8,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const BASE = process.env.E2E_URL ?? 'http://localhost:5180/';
+// The committed example report links to the public demo, not the local server it was generated on.
+const PUBLIC_DEMO = 'https://aws-architecture-assistant.vercel.app/';
 // Optional: 'local' (in-browser demo planner, and no /api requests at all) or 'api'.
 const EXPECT_PLANNER = process.env.E2E_EXPECT_PLANNER;
 const OUT = fileURLToPath(new URL('../docs/screenshots/', import.meta.url));
@@ -100,7 +102,7 @@ try {
   /* ---------------- Desktop 1440 ---------------- */
   const page = await newPage(1440, 900, { clipboard: true });
   check((await page.getByTestId('start-panel').count()) === 1, 'start panel shown before any plan');
-  check((await page.locator('[data-testid^="start-sample-"]').count()) === 3, 'start panel offers the three samples');
+  check((await page.locator('[data-testid^="start-sample-"]').count()) === 5, 'start panel offers the five samples');
   check(await mobileBarHidden(page), 'mobile action bar is hidden at 1440');
   const badge = await page.getByTestId('planner-mode').innerText({ timeout: 10000 });
   console.log(`      planner badge: "${badge}"`);
@@ -112,6 +114,8 @@ try {
     ['Basic web application', '02-web-app-desktop-1440.png', /Users/],
     ['Integration between existing systems', '03-integration-desktop-1440.png', /Salesforce/],
     ['AI knowledge assistant', '04-ai-assistant-desktop-1440.png', /KnowledgeBase/],
+    ['Sales reporting dashboards', '15-data-pipeline-desktop-1440.png', /QuickSightdashboards/],
+    ['Nightly report job', '16-scheduled-jobs-desktop-1440.png', /EventBridgeScheduler/],
   ]) {
     await loadScenario(page, name, marker);
     const nodes = await page.locator(NODE_SEL).count();
@@ -150,6 +154,85 @@ try {
   check((await activeInfo(page)).id === 'plan-tab-components', 'summary "components" opens the Components tab');
   await resetScroll(page);
 
+  /* ---------------- New patterns: the new services are drawn with their icons ---------------- */
+  // True when a node with this label is drawn as an icon shape that contains the icon's artwork.
+  const iconFor = (p, label) =>
+    p.evaluate((want) => {
+      const norm = (t) => (t ?? '').replace(/\s+/g, '');
+      return [...document.querySelectorAll('[data-testid="diagram"] svg g.icon-shape')].some((g) => norm(g.textContent) === norm(want) && Boolean(g.querySelector('svg path, svg rect')));
+    }, label);
+  await loadScenario(page, 'Sales reporting dashboards', /QuickSightdashboards/);
+  for (const label of ['Quick Sight dashboards', 'EventBridge Scheduler', 'Athena queries', 'Glue jobs and Data Catalog']) check(await iconFor(page, label), `data pipeline: "${label}" drawn with its AWS icon`);
+  check((await page.inputValue('#field-workloadType')) === 'data_pipeline', 'data pipeline sample selects "Collecting data for reports and dashboards"');
+  await page.getByRole('button', { name: /Alternative: Data warehouse/ }).click();
+  await waitForDiagramText(page, /RedshiftServerless/);
+  check(await iconFor(page, 'Redshift Serverless warehouse'), 'data pipeline alternative: Redshift Serverless drawn with its icon');
+  await page.getByRole('button', { name: /Alternative: Stream records/ }).click();
+  await waitForDiagramText(page, /DataFirehose/);
+  check(await iconFor(page, 'Data Firehose stream'), 'data pipeline alternative: Data Firehose drawn with its icon');
+
+  /* ---------------- Alternative diagrams: toggle, what changes, use this alternative ---------------- */
+  await loadScenario(page, 'Nightly report job', /EventBridgeScheduler/);
+  check(await iconFor(page, 'Lambda job'), 'scheduled jobs: the job is drawn with its AWS icon');
+  const toggle = page.getByTestId('diagram-toggle');
+  check((await toggle.getByRole('button').count()) === 4, 'diagram switch offers Recommended plus the three drawn alternatives');
+  check((await page.getByTestId('diagram-toggle-recommended').getAttribute('aria-pressed')) === 'true', 'the recommended design is shown first');
+  const recommendedText = await diagramText(page);
+  await toggle.getByRole('button', { name: /Container task/ }).click();
+  await waitForDiagramText(page, /ECSFargatetask/);
+  const altText = await diagramText(page);
+  check(!/Lambdajob/.test(altText) && /VPC/.test(altText), 'switching shows the alternative diagram (Fargate task in a VPC, no Lambda job)');
+  check(await iconFor(page, 'ECS Fargate task'), 'alternative diagram keeps the AWS icons');
+  check(/^Alternative: Container task/.test(await page.getByTestId('diagram-label').innerText()), 'the toolbar names the alternative being shown');
+  const added = await page.getByTestId('what-changes-added').innerText();
+  const removed = await page.getByTestId('what-changes-removed').innerText();
+  check(/ECS Fargate task/.test(added) && /VPC/.test(added) && /Lambda job/.test(removed), 'what-changes lists the added and removed components');
+  check(/Some runs take longer than 15 minutes/.test(await page.getByTestId('what-changes').innerText()), 'what-changes shows the answer that changes');
+  check(await noHorizontalOverflow(page), 'no horizontal overflow with an alternative shown at 1440');
+  await resetScroll(page);
+  await page.screenshot({ path: OUT + '17-alternative-diagram-1440.png' });
+  const altSvg = await download(page, 'export-svg');
+  check(/alternative/.test(altSvg.name) && /ECSFargatetask/.test(altSvg.text.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, '')), `Export SVG exports the alternative being shown (${altSvg.name})`);
+  await page.getByRole('button', { name: 'Back to recommended' }).click();
+  await waitForDiagramText(page, /Lambdajob/);
+  check((await diagramText(page)) === recommendedText && (await page.getByTestId('what-changes').count()) === 0, '"Back to recommended" restores the recommended diagram');
+
+  // Alternatives tab: drawn ones link to their diagram, others say why they are text-only
+  await page.getByRole('tab', { name: /Alternatives/ }).click();
+  check((await page.locator('[data-testid^="view-alternative-"]').count()) === 3, 'Alternatives tab offers "View its diagram" for each drawn alternative');
+  await page.locator('.alternative', { hasText: 'Add Step Functions' }).getByRole('button', { name: 'View its diagram' }).click();
+  await waitForDiagramText(page, /StepFunctionsworkflow/);
+  await page.waitForTimeout(500);
+  check((await activeInfo(page)).id === 'what-changes-heading', '"View its diagram" shows it in the diagram and moves focus to what changes');
+  await page.getByTestId('use-alternative').click();
+  await page.waitForFunction(() => document.querySelector('[data-testid="diagram-toggle-recommended"]')?.getAttribute('aria-pressed') === 'true', null, { timeout: 20000 });
+  await waitForDiagramText(page, /StepFunctionsworkflow/);
+  check(/multi-step workflow/.test(await page.inputValue('#field-operationsNotes')), '"Use this alternative" writes the changed answer into the form');
+  check((await page.locator('.callout.is-stale').count()) === 0, 'the regenerated plan matches the form (not stale)');
+  await page.getByRole('tab', { name: /Alternatives/ }).click();
+  check((await page.locator('.alternative', { hasText: 'One job without a workflow' }).count()) === 1, 'the adopted plan offers the way back as an alternative');
+  await resetScroll(page);
+  await page.locator('#plan-details').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: OUT + '18-alternatives-tab-1440.png' });
+  const adoptedText = await diagramText(page);
+  await page.getByTestId('copy-link').click();
+  await page.getByRole('button', { name: 'Link copied' }).waitFor({ timeout: 5000 });
+  const adoptedShared = await newPage(1440, 900, { url: await page.evaluate(() => navigator.clipboard.readText()) });
+  await diagramReady(adoptedShared);
+  await waitForDiagramText(adoptedShared, /StepFunctionsworkflow/);
+  check((await diagramText(adoptedShared)) === adoptedText, 'a share link after "Use this alternative" reopens the same plan');
+  await adoptedShared.context().close();
+  const altReport = await download(page, 'download-report');
+  check(/Diagram of this alternative/.test(altReport.text) && /- Added: \*\*/.test(altReport.text) && /Not drawn as a diagram|Answer changed/.test(altReport.text), 'report includes each drawn alternative and its what-changes list');
+  await page.getByRole('tab', { name: 'Components' }).click();
+
+  // Text-only alternatives say so
+  await loadScenario(page, 'AI knowledge assistant', /KnowledgeBase/);
+  check((await page.getByTestId('diagram-toggle').count()) === 0, 'no diagram switch when no alternative can be drawn');
+  await page.getByRole('tab', { name: /Alternatives/ }).click();
+  check((await page.locator('[data-testid^="alternative-text-only-"]').count()) === 2, 'text-only alternatives say they have no diagram, and why');
+  await page.getByRole('tab', { name: 'Components' }).click();
+
   // Considerations tab with source chips and assumption labels
   await page.getByRole('tab', { name: 'Considerations' }).click();
   const chipHrefs = await page.locator('.pillar a.chip').evaluateAll((as) => as.map((a) => a.href));
@@ -175,7 +258,8 @@ try {
   await resetScroll(page);
   await page.screenshot({ path: OUT + '07-regenerated-plan-1440.png' });
 
-  // Copy link -> open in a fresh context -> same plan
+  // Copy link -> open in a fresh context -> same plan (wait out any earlier "Link copied" state first)
+  await page.getByRole('button', { name: 'Copy link' }).waitFor({ timeout: 5000 });
   await page.getByTestId('copy-link').click();
   await page.getByRole('button', { name: 'Link copied' }).waitFor({ timeout: 5000 });
   const link = await page.evaluate(() => navigator.clipboard.readText());
@@ -211,7 +295,7 @@ try {
   check(/\*\*Not production-ready\.\*\*/.test(report.text) && !/\$\s?\d/.test(report.text), 'report has the not-production-ready notice and no dollar figures');
   const reportUrls = report.text.match(/https?:\/\/[^\s)<>]+/g) ?? [];
   check(reportUrls.every((u) => u.startsWith('https://docs.aws.amazon.com/') || u.startsWith(BASE.split('#')[0] + '#r=')), `report links only to AWS docs sources and the share link (${reportUrls.length} URLs)`);
-  await writeFile(fileURLToPath(new URL('../docs/example-report.md', import.meta.url)), report.text);
+  await writeFile(fileURLToPath(new URL('../docs/example-report.md', import.meta.url)), report.text.replaceAll(`${BASE.split('#')[0]}#r=`, `${PUBLIC_DEMO}#r=`));
 
   // SVG export with embedded icons
   const svgFile = await download(page, 'export-svg');
@@ -361,12 +445,29 @@ try {
   check(await noHorizontalOverflow(narrow), 'no horizontal page overflow at 390px after editing');
   await narrow.context().close();
 
+  const narrowAlt = await newPage(390, 844);
+  await loadScenario(narrowAlt, 'Nightly report job', /EventBridgeScheduler/);
+  await narrowAlt.waitForTimeout(900);
+  await narrowAlt.getByTestId('diagram-toggle').getByRole('button', { name: /AWS Batch/ }).click();
+  await waitForDiagramText(narrowAlt, /AWSBatchjobs/);
+  check(await narrowAlt.getByTestId('what-changes').isVisible(), 'what-changes shown at 390px');
+  check(await noHorizontalOverflow(narrowAlt), 'no horizontal page overflow with an alternative shown at 390px');
+  await narrowAlt.getByTestId('diagram-toggle').scrollIntoViewIfNeeded();
+  await narrowAlt.evaluate(() => window.scrollBy(0, -70));
+  await narrowAlt.screenshot({ path: OUT + '19-alternative-mobile-390.png' });
+  await narrowAlt.context().close();
+
   /* ---------------- Tablet 1024 ---------------- */
   const mid = await newPage(1024, 800);
   await loadScenario(mid, 'Integration between existing systems', /Salesforce/);
   check(await noHorizontalOverflow(mid), 'no horizontal page overflow at 1024px');
   check(await mobileBarHidden(mid), 'mobile action bar is hidden at 1024');
   check((await mid.getByTestId('plan-summary').count()) === 1, 'summary bar shown at 1024');
+  await loadScenario(mid, 'Basic web application', /DynamoDB/);
+  await mid.getByTestId('diagram-toggle').getByRole('button', { name: /Containers/ }).click();
+  await waitForDiagramText(mid, /ECSFargate/);
+  check(await noHorizontalOverflow(mid), 'no horizontal page overflow with an alternative shown at 1024px');
+  await loadScenario(mid, 'Integration between existing systems', /Salesforce/);
   await resetScroll(mid);
   await mid.screenshot({ path: OUT + '11-integration-tablet-1024.png' });
   await mid.context().close();

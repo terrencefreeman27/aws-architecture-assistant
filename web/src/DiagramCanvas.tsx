@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { downloadText } from './download';
 import { isNarrow } from './options';
 
@@ -8,6 +8,10 @@ interface Props {
   /** Portable Mermaid source without icons: shown to the user and used if the icon pack fails to load. */
   portableSource: string;
   title: string;
+  /** Toolbar label, e.g. which design is shown. */
+  label?: string;
+  /** Rendered between the toolbar and the diagram (design switch, what-changes panel). */
+  header?: ReactNode;
 }
 
 type MermaidApi = typeof import('mermaid')['default'];
@@ -48,7 +52,7 @@ function loadMermaid(): Promise<{ mermaid: MermaidApi; icons: boolean }> {
   return mermaidPromise;
 }
 
-export function DiagramCanvas({ iconSource, portableSource, title }: Props) {
+export function DiagramCanvas({ iconSource, portableSource, title, label = 'Architecture diagram', header }: Props) {
   const reactId = useId().replace(/[^a-zA-Z0-9]/g, '');
   const [svg, setSvg] = useState('');
   const [error, setError] = useState('');
@@ -90,9 +94,11 @@ export function DiagramCanvas({ iconSource, portableSource, title }: Props) {
   };
 
   return (
-    <div className="canvas-card">
+    <div className="canvas-card" id="diagram-card">
       <div className="canvas-toolbar">
-        <span className="canvas-label">Architecture diagram</span>
+        <span className="canvas-label" aria-live="polite" data-testid="diagram-label">
+          {label}
+        </span>
         <div className="toolbar-actions">
           <button type="button" className="btn-quiet" onClick={() => setFit((v) => !v)} aria-pressed={fit} disabled={!svg}>
             {fit ? 'Actual size' : 'Fit to width'}
@@ -105,6 +111,7 @@ export function DiagramCanvas({ iconSource, portableSource, title }: Props) {
           </button>
         </div>
       </div>
+      {header}
       {error ? (
         <div className="canvas-error" role="alert">
           The diagram failed to render: {error}

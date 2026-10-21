@@ -1,6 +1,6 @@
 import { useRef, type KeyboardEvent } from 'react';
 import { getService } from '../../shared/catalog';
-import { PILLARS, type Plan } from '../../shared/schema';
+import { PILLARS, type ResolvedPlan } from '../../shared/schema';
 import { TIER_LABELS } from './options';
 import { SourceChips } from './SourceChips';
 
@@ -17,12 +17,15 @@ const PILLAR_TITLES: Record<string, string> = {
 };
 
 interface Props {
-  plan: Plan;
+  plan: ResolvedPlan;
   tab: PlanTab;
   onTabChange: (tab: PlanTab) => void;
+  /** Alternative currently drawn in the diagram, if any. */
+  shownAlt?: number | null;
+  onViewAlternative?: (index: number) => void;
 }
 
-export function PlanDetails({ plan, tab, onTabChange }: Props) {
+export function PlanDetails({ plan, tab, onTabChange, shownAlt = null, onViewAlternative }: Props) {
   const list = useRef<HTMLDivElement>(null);
 
   // Arrow keys, Home, and End move between tabs (WAI-ARIA tabs pattern, automatic activation).
@@ -105,8 +108,8 @@ export function PlanDetails({ plan, tab, onTabChange }: Props) {
 
         {tab === 'Alternatives' && (
           <div className="alternatives">
-            {plan.alternatives.map((alt) => (
-              <article key={alt.title} className="alternative">
+            {plan.alternatives.map((alt, i) => (
+              <article key={alt.title} className="alternative" data-testid={`alternative-${i}`}>
                 <h3>{alt.title}</h3>
                 <p>{alt.summary}</p>
                 <div className="tradeoffs">
@@ -128,6 +131,32 @@ export function PlanDetails({ plan, tab, onTabChange }: Props) {
                   </div>
                 </div>
                 <SourceChips ids={alt.sourceIds} />
+                {alt.variant?.kind === 'diagram' ? (
+                  <div className="alt-diagram">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => onViewAlternative?.(i)}
+                      aria-pressed={shownAlt === i}
+                      data-testid={`view-alternative-${i}`}
+                    >
+                      {shownAlt === i ? 'Shown in the diagram' : 'View its diagram'}
+                    </button>
+                    <span className="alt-diagram-summary">
+                      {[
+                        alt.variant.added.length ? `adds ${alt.variant.added.length}` : '',
+                        alt.variant.removed.length ? `removes ${alt.variant.removed.length}` : '',
+                      ]
+                        .filter(Boolean)
+                        .join(', ')}{' '}
+                      {alt.variant.added.length + alt.variant.removed.length === 1 ? 'component' : 'components'}
+                    </span>
+                  </div>
+                ) : alt.variant ? (
+                  <p className="alt-text-only" data-testid={`alternative-text-only-${i}`}>
+                    <strong>Text only, no diagram.</strong> {alt.variant.reason}
+                  </p>
+                ) : null}
               </article>
             ))}
           </div>
