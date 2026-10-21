@@ -5,6 +5,7 @@ import { computeCompleteness, followUpQuestions } from './requirements';
 import { RequirementsSchema, type FollowUpQuestion, type PlanResponse, type Requirements, type ValidationIssue } from './schema';
 import { resolveUnsure, unsureAssumptions } from './unsure';
 import { validatePlan } from './validate';
+import { withVariants } from './variants';
 
 /**
  * The follow-up questions the pipeline asks before planning: missing required
@@ -18,7 +19,8 @@ export function questionsFor(req: Requirements, provider: ArchitectureProvider):
 
 /**
  * The single path from requirements to a response, shared by every provider:
- * completeness gate -> guardrail cautions -> "Not sure" defaults -> provider -> validation -> Mermaid.
+ * completeness gate -> guardrail cautions -> "Not sure" defaults -> provider -> validation -> Mermaid,
+ * then each alternative the provider can express is re-planned and validated the same way (shared/variants.ts).
  * Providers only ever see resolved requirements; each default becomes a plan assumption.
  */
 export async function planFromRequirements(req: Requirements, provider: ArchitectureProvider): Promise<PlanResponse> {
@@ -55,6 +57,7 @@ export async function planFromRequirements(req: Requirements, provider: Architec
   const plan = {
     ...result.plan,
     assumptions: [...unsureAssumptions(req), ...result.plan.assumptions],
+    alternatives: await withVariants(req, result.plan, provider),
     cautions: mergeCautions(cautions, result.plan.cautions),
   };
   return {

@@ -794,6 +794,16 @@ function dataPipeline(req: Requirements): PlanBuilder {
 
 const jobsText = (req: Requirements) => `${req.description}\n${req.operationsNotes}`;
 
+/** From AWS Batch to one Fargate task: drop the parallel-jobs sentence, and keep the run on a container (not Lambda) by noting it is long. */
+function singleTask(req: Requirements, long: boolean): AlternativeSpec {
+  const spec = removeNote(req, CHOICE_NOTES.parallel, PARALLEL_HINT, jobsText, 'Your own description asks for many parallel jobs, so the planner keeps AWS Batch. Edit that wording to compare.');
+  if (!('changes' in spec) || long || req.operations === 'containers') return spec;
+  const without = spec.changes[0].value;
+  const value = without ? `${without} ${CHOICE_NOTES.long}` : CHOICE_NOTES.long;
+  if (value.length > NOTES_MAX) return { reason: `Selecting it means adding a sentence to "Anything else we should know?", and that answer is already close to its ${NOTES_MAX}-character limit.` };
+  return { changes: [{ field: 'operationsNotes', value, summary: `replaces "${CHOICE_NOTES.parallel}" with "${CHOICE_NOTES.long}"` }] };
+}
+
 function scheduledJobs(req: Requirements): PlanBuilder {
   const b = new PlanBuilder();
   const allText = jobsText(req);
@@ -927,7 +937,7 @@ function scheduledJobs(req: Requirements): PlanBuilder {
         cons: ['One task does all the work, so large runs take longer.', 'No built-in queueing of many jobs.'],
         sourceIds: ['svc-ecs'],
       },
-      removeNote(req, CHOICE_NOTES.parallel, PARALLEL_HINT, jobsText, 'Your own description asks for many parallel jobs, so the planner keeps AWS Batch. Edit that wording to compare.'),
+      singleTask(req, long),
     );
   }
   if (compute !== 'batch') {

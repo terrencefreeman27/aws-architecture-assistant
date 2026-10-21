@@ -1,7 +1,7 @@
 import { getService } from './catalog';
 import { SELECT_OPTIONS, TIER_LABELS, unsureDefaultLabel } from './options';
 import { FIELD_META } from './requirements';
-import { PILLARS, type Plan, type RequirementField, type Requirements } from './schema';
+import { PILLARS, type ComponentRef, type RequirementField, type Requirements, type ResolvedPlan } from './schema';
 import { getSource, type Source } from './sources';
 import { UNSURE, isUnsureField } from './unsure';
 
@@ -16,7 +16,7 @@ import { UNSURE, isUnsureField } from './unsure';
  */
 
 export interface ReportInput {
-  plan: Plan;
+  plan: ResolvedPlan;
   /** Mermaid source generated from the validated plan (PlanResponse.mermaid). */
   mermaid: string;
   /** The requirements the plan was generated from. */
@@ -192,6 +192,22 @@ export function planToMarkdown(input: ReportInput): string {
     blank();
     for (const c of alt.cons) out.push(`- ${mdText(c)}`);
     blank();
+    const v = alt.variant;
+    if (v?.kind === 'diagram') {
+      out.push('Diagram of this alternative, generated the same way from its own validated components:');
+      blank();
+      out.push(fence(v.mermaid));
+      blank();
+      out.push('What changes compared with the recommended design:');
+      blank();
+      for (const c of v.changes) out.push(`- Answer changed: ${mdText(c.label)}`);
+      for (const n of v.added) out.push(`- Added: ${componentText(n)}`);
+      for (const n of v.removed) out.push(`- Removed: ${componentText(n)}`);
+      blank();
+    } else if (v) {
+      out.push(`_Not drawn as a diagram: ${mdText(v.reason)}_`);
+      blank();
+    }
   }
 
   out.push('## Implementation sequence');
@@ -225,6 +241,10 @@ export function planToMarkdown(input: ReportInput): string {
   blank();
 
   return out.join('\n');
+}
+
+function componentText(n: ComponentRef): string {
+  return `**${mdText(n.label)}**${n.service && n.service !== n.label ? ` (${mdText(n.service)})` : ''}`;
 }
 
 /** File name for the downloaded report, derived from the plan title. */

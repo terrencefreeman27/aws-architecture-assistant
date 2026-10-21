@@ -53,6 +53,19 @@ describe('MCP server (in-memory)', () => {
     expect(tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }))).toMatchSnapshot();
   });
 
+  it('plan_architecture includes each alternative\'s drawn variant or text-only reason (additive fields)', async () => {
+    const r = await call('plan_architecture', { requirements: SCENARIOS.find((s) => s.id === 'scheduled-jobs')!.requirements });
+    const alts = r.structuredContent.plan.alternatives;
+    expect(alts.length).toBeGreaterThan(1);
+    for (const a of alts) {
+      expect(a).toEqual(expect.objectContaining({ title: expect.any(String), summary: expect.any(String), pros: expect.any(Array), cons: expect.any(Array), sourceIds: expect.any(Array) }));
+      expect(['diagram', 'text_only']).toContain(a.variant.kind);
+    }
+    const drawn = alts.find((a: any) => a.variant.kind === 'diagram').variant;
+    expect(drawn.mermaid).toMatch(/^flowchart TB/);
+    expect(drawn.changes[0]).toEqual(expect.objectContaining({ field: 'operationsNotes', value: expect.any(String), label: expect.any(String) }));
+  });
+
   it('server instructions carry the same rules', () => {
     const instructions = client.getInstructions() ?? '';
     expect(instructions).toMatch(/never invent/i);

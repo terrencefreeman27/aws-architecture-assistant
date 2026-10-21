@@ -146,6 +146,41 @@ export const AlternativeSchema = z.object({
 });
 export type Alternative = z.infer<typeof AlternativeSchema>;
 
+/** A requirement answer an alternative changes, with a readable description, e.g. "Who runs it: We already use containers (Docker etc.)". */
+export interface RequirementChange {
+  field: RequirementField;
+  value: string;
+  label: string;
+}
+
+/** A component named in an alternative's "what changes" list. */
+export interface ComponentRef {
+  id: string;
+  label: string;
+  kind: 'aws' | 'external' | 'actor';
+  /** Catalog service name for AWS components. */
+  service?: string;
+}
+
+/**
+ * Added by the planning pipeline, never accepted from a provider: an
+ * alternative drawn as its own validated design, or the reason it is text-only.
+ * `added` and `removed` are computed by comparing the two validated plans.
+ */
+export type AlternativeVariant =
+  | {
+      kind: 'diagram';
+      changes: RequirementChange[];
+      nodes: PlanNode[];
+      connections: Connection[];
+      mermaid: string;
+      added: ComponentRef[];
+      removed: ComponentRef[];
+    }
+  | { kind: 'text_only'; reason: string };
+
+export type PlanAlternative = Alternative & { variant?: AlternativeVariant };
+
 export const PlanSchema = z.object({
   title: z.string().min(1).max(120),
   summary: z.string().min(1).max(1200),
@@ -166,6 +201,9 @@ export const PlanSchema = z.object({
   cautions: z.array(CautionSchema).default([]),
 });
 export type Plan = z.infer<typeof PlanSchema>;
+
+/** A validated plan as returned to callers: alternatives may carry their drawn variant. */
+export type ResolvedPlan = Omit<Plan, 'alternatives'> & { alternatives: PlanAlternative[] };
 
 /* ------------------------------------------------------------------ */
 /* API contract                                                        */
@@ -204,7 +242,7 @@ export type PlanResponse =
       kind: 'plan';
       provider: string;
       completeness: Completeness;
-      plan: Plan;
+      plan: ResolvedPlan;
       mermaid: string;
       warnings: ValidationIssue[];
       generatedAt: string;

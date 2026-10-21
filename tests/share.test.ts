@@ -8,6 +8,8 @@ import {
   readShareHash,
   toBase64Url,
 } from '../shared/share';
+import { planArchitecture } from '../shared/core';
+import { applyChanges } from '../shared/variants';
 import { req } from './helpers';
 
 const b64json = (value: unknown) => `j${toBase64Url(new TextEncoder().encode(JSON.stringify(value)))}`;
@@ -24,6 +26,16 @@ describe('share link encoding', () => {
     expect(payload.length).toBeLessThan(1200);
     const decoded = await decodeRequirements(payload);
     expect(decoded).toEqual({ ok: true, requirements });
+  });
+
+  it.each(SCENARIOS.map((s) => [s.id, s.requirements] as const))('round-trips the %s sample after "Use this alternative"', async (_id, requirements) => {
+    const r = await planArchitecture(requirements);
+    if (r.kind !== 'plan') throw new Error('expected plan');
+    for (const alt of r.plan.alternatives) {
+      if (alt.variant?.kind !== 'diagram') continue;
+      const applied = applyChanges(requirements, alt.variant.changes);
+      expect(await decodeRequirements(await encodeRequirements(applied))).toEqual({ ok: true, requirements: applied });
+    }
   });
 
   it('round-trips empty requirements and non-ASCII text', async () => {
