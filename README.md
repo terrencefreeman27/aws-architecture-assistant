@@ -19,15 +19,16 @@ A local workbench for people who understand their business problem but not AWS. 
    - a step-by-step data-flow explanation
    - assumptions (each linked to the requirement you can edit to correct it) and open questions
    - security, reliability, performance, operations, and cost considerations
-   - at least one alternative with its tradeoffs
+   - at least one alternative with its tradeoffs, and for alternatives the planner can express as a different answer, a diagram of that alternative (see below)
    - a high-level implementation sequence
 
    A **summary bar** above the diagram counts the components, assumptions, alternatives, open questions, and cautions. Each count jumps to its tab or Assistant section and moves keyboard focus there.
 5. **Edit and regenerate.** Change any requirement; the plan is marked stale until you regenerate, and the result visibly changes (for example, switching to "team already uses containers" turns a serverless design into ALB + ECS Fargate + RDS).
 6. **Save and share.** Requirements autosave in your browser and come back on reload. **Copy link** puts the requirements into a link; opening it loads them and generates the same plan. If the browser blocks clipboard access, the link appears in a field you can select and copy.
-7. **Download report (.md).** A self-contained Markdown design document: requirements as entered, the diagram as a Mermaid block, components, data flow, assumptions, open questions, considerations by pillar, alternatives, implementation sequence, cautions, the cited AWS documentation, and the share link. See [`docs/example-report.md`](docs/example-report.md).
+7. **Download report (.md).** A self-contained Markdown design document: requirements as entered, the diagram as a Mermaid block, components, data flow, assumptions, open questions, considerations by pillar, alternatives (each drawn alternative with its own Mermaid diagram and what-changes list), implementation sequence, cautions, the cited AWS documentation, and the share link. See [`docs/example-report.md`](docs/example-report.md).
+8. **See an alternative's diagram.** Above the diagram, a switch reads **Recommended | Alternative: ...** for every alternative that can be drawn (the Alternatives tab has a **View its diagram** button for the same). Showing one draws its own diagram with icons, and a **What changes** panel lists the answer that changes, and the components added and removed. **Use this alternative** applies that answer to your requirements and regenerates, so the result is an ordinary plan you can edit, share, and download. **Export SVG** exports whichever design is shown.
 
-Three one-click samples are included: a basic web application, an integration between existing systems (CRM to on-premises ERP), and an AI knowledge assistant. Clicking one (in the sidebar, or on the start panel that replaces the empty canvas) fills the form **and** generates the plan immediately.
+Five one-click samples are included: a basic web application, an integration between existing systems (CRM to on-premises ERP), an AI knowledge assistant, sales reporting dashboards (a data pipeline), and a nightly report job (scheduled jobs). Clicking one (in the sidebar, or on the start panel that replaces the empty canvas) fills the form **and** generates the plan immediately.
 
 **On phones** (760 px and narrower) the Generate/Regenerate action is pinned to the bottom of the screen (clear of the home indicator via safe-area insets). After a plan is generated, the form folds into a short "Your requirements" summary with an **Edit requirements** button and the page scrolls to the plan. The diagram starts at actual size with sideways scrolling, because fit-to-width makes the labels unreadable on a phone; **Fit to width** is one tap away.
 
@@ -46,12 +47,18 @@ Three one-click samples are included: a basic web application, an integration be
 
 ![Every allowed question answered "Not sure": each default is listed as an assumption with an Edit link](docs/screenshots/13-not-sure-defaults-1440.png)
 
+### Alternatives as real designs
+
+An alternative is drawn only when the planner can express it as a change to your answers: for example "We already use containers (Docker etc.)" for **Who will look after it day to day?**, or a sentence added to **Anything else we should know?** such as "Some runs take longer than 15 minutes." The pipeline applies the change, runs the same deterministic planner, validates the result exactly like the main plan (schema, diagram integrity, catalog, citations), and generates its Mermaid. The **added** and **removed** lists come from comparing the two validated plans, never from hand-written text. Alternatives that cannot be expressed that way (Amplify Hosting, AppFlow, Amazon Q Business, an unbuffered point-to-point integration), or whose variant fails any check, stay text-only and say why. The optional live model provider is never re-run for alternatives; its alternatives are text-only.
+
+![Scheduled jobs plan showing the "Container task" alternative with its what-changes panel](docs/screenshots/17-alternative-diagram-1440.png)
+
 ## How it stays honest
 
 | Rule | How it is enforced |
 | --- | --- |
 | The model returns structured data, not diagrams | Providers return JSON validated by a Zod schema (`shared/schema.ts`). Mermaid is generated by the app from validated nodes and connections (`shared/mermaid.ts`), with labels reduced to a safe character set. |
-| Only supported AWS components | `shared/catalog.ts` lists 41 supported services. Components outside it are removed from the diagram, reported as validation warnings, and flagged as a caution (`shared/validate.ts`). |
+| Only supported AWS components | `shared/catalog.ts` lists 46 supported services. Components outside it are removed from the diagram, reported as validation warnings, and flagged as a caution (`shared/validate.ts`). |
 | Invalid diagram data is rejected | Duplicate ids, connections to undeclared nodes, self-loops, unsafe ids, or free-form text instead of structured data produce an error and no diagram. |
 | No fabricated citations | `shared/sources.ts` is a typed registry of 56 official AWS documentation pages (AWS Well-Architected Framework, its pillars and lenses, two whitepapers, cost tooling docs, and service overview pages). Each URL was fetched and confirmed (HTTP 200, matching page title) on 2026-10-01. Plans cite registry ids only; unknown ids are stripped, and a claim left with no source is relabelled as an **assumption**. |
 | No confident answers it cannot back up | Requests for exact costs, compliance certification, "production-ready" or guaranteed uptime, and other clouds produce explicit cautions instead of answers (`shared/guardrails.ts`). |
@@ -66,7 +73,7 @@ Three one-click samples are included: a basic web application, an integration be
 
 ## AWS Architecture Icons
 
-The diagram uses the official [AWS Architecture Icons](https://aws.amazon.com/architecture/icons/). The 40 SVGs needed for the 41-service catalog are vendored, unmodified, in [`vendor/aws-architecture-icons/`](vendor/aws-architecture-icons/NOTICE.md) from the Q3 2026 icon package. AWS publishes these terms on that page (checked 2026-10-01):
+The diagram uses the official [AWS Architecture Icons](https://aws.amazon.com/architecture/icons/). The 44 SVGs needed for the 46-service catalog are vendored, unmodified, in [`vendor/aws-architecture-icons/`](vendor/aws-architecture-icons/NOTICE.md) from the Q3 2026 icon package. AWS publishes these terms on that page (checked 2026-10-01):
 
 > "We allow customers and partners to use these toolkits and assets to create architecture diagrams."
 >
@@ -112,7 +119,7 @@ The UI shows a badge with the planner that produced the plan on screen: **Demo p
 | `local` | anywhere | Always the in-browser demo planner. |
 | `api` | anywhere | Always the server API. If it cannot be reached, the UI says so and offers a one-click switch to the in-browser demo planner; it never swaps silently. |
 
-The in-browser planner runs exactly the same code path as `POST /api/plan` (`planFromInput` in `shared/service.ts`: schema check, completeness gate, guardrails, `DemoProvider`, validation, Mermaid). Tests assert both paths return identical results for the three samples.
+The in-browser planner runs exactly the same code path as `POST /api/plan` (`planFromInput` in `shared/service.ts`: schema check, completeness gate, guardrails, `DemoProvider`, validation, Mermaid). Tests assert both paths return identical results for the five samples.
 
 To use `npm run preview` against the API, build with `VITE_PLANNER=api npm run build`.
 
@@ -179,11 +186,11 @@ Tools (all read-only and deterministic):
 
 | Tool | Input | Returns |
 | --- | --- | --- |
-| `get_requirements_schema` | none | Every requirement field: the plain-language question, why it matters, whether it is required, allowed values with labels, and for fields that accept `"unsure"`, the default that will be assumed. |
+| `get_requirements_schema` | none | Every requirement field: the plain-language question, why it matters, whether it is required, allowed values with labels, text length limits, and for fields that accept `"unsure"`, the default that will be assumed. The notes and every tool's `requirements` description state the limits up front: description 20 to 2000 characters, existing systems 1000, the three notes fields 500 each, and existing-system names become diagram labels of at most 60 characters (longer names are shortened, not rejected). |
 | `get_missing_questions` | `requirements` | `complete`, or `needs_more_information` with follow-up questions (field, question, why) and a completeness score. |
-| `plan_architecture` | `requirements` | The validated plan (components, connections, data flow, assumptions, open questions, considerations with source ids, alternatives, steps, cautions), the Mermaid diagram, and validation warnings. Incomplete requirements return the questions instead of a plan. |
+| `plan_architecture` | `requirements` | The validated plan (components, connections, data flow, assumptions, open questions, considerations with source ids, alternatives, steps, cautions), the Mermaid diagram, and validation warnings. Each alternative has a `variant`: `{ kind: "diagram", changes, nodes, connections, mermaid, added, removed }` (applying `changes` to the requirements reproduces it) or `{ kind: "text_only", reason }`. These are additive fields. Incomplete requirements return the questions instead of a plan. |
 | `export_report` | `requirements` | The same Markdown design document the website downloads, including a share link that opens the requirements on the public demo. |
-| `list_supported_services` | none | The 41-service catalog. |
+| `list_supported_services` | none | The 46-service catalog. |
 | `get_sources` | optional `ids` | Entries from the curated source registry; unknown ids are listed separately, never invented. |
 
 The tool descriptions and server instructions tell the calling model to ask you for missing information instead of inventing it, to present plans as not production-ready, never to quote costs, and to cite only sources the tools return. `requirements` uses the field names and values from `get_requirements_schema` (the same JSON as `aws-arch-plan samples <id>` prints). Invalid values come back as a tool error naming the field; unknown keys are ignored and listed in `ignoredFields`.
@@ -193,7 +200,7 @@ The tool descriptions and server instructions tell the calling model to ask you 
 A thin CLI over the same core, for scripts and quick checks. Run it with `npm run cli -- <command>` or `node bin/aws-arch-plan.mjs <command>` (or `npm link` once to put `aws-arch-plan` on your PATH).
 
 ```bash
-node bin/aws-arch-plan.mjs samples                       # list the three samples
+node bin/aws-arch-plan.mjs samples                       # list the five samples
 node bin/aws-arch-plan.mjs samples web-app > my.json     # start from a sample, then edit it
 node bin/aws-arch-plan.mjs questions my.json             # what is still missing (JSON)
 node bin/aws-arch-plan.mjs plan my.json                  # plan + Mermaid + warnings (JSON)
@@ -210,7 +217,7 @@ Requirements are read as JSON from a file or from stdin (`-`). Exit codes: `0` s
 
 ```bash
 npm run typecheck    # tsc --noEmit over shared, server, web, and tests
-npm test             # vitest: 221 unit, API, client-planner, share, report, icon, bundle, MCP, and CLI tests; no network access, no model calls
+npm test             # vitest: 316 unit, API, client-planner, share, report, icon, bundle, MCP, and CLI tests; no network access, no model calls
 npm run e2e          # browser checks + screenshots against a running instance (dev server or static build)
 ```
 
@@ -222,19 +229,22 @@ npm run e2e          # browser checks + screenshots against a running instance (
 - **Unsupported service suggestions:** services outside the catalog are removed, flagged, and never reach the diagram.
 - **Invalid diagram data:** dangling connections, duplicate ids, self-loops, unsafe ids, missing sections, and free-form diagram text are rejected (also through the HTTP API, which returns 422).
 - **Questions it should not answer confidently:** cost, compliance, production readiness, other clouds, regulated data, and mission-critical availability produce cautions; plans contain no dollar figures and never claim to be production-ready.
-- **Citations:** every source id cited by every demo plan, across all 1,728 combinations of the main requirement options, exists in the curated registry; all registry URLs are official `docs.aws.amazon.com` pages.
+- **Citations:** every source id cited by every demo plan, across all 2,880 combinations of the main requirement options (five samples), exists in the curated registry; all registry URLs are official `docs.aws.amazon.com` pages.
 - **Diagrams render:** generated Mermaid for every sample parses with Mermaid itself (jsdom), including labels containing hostile text.
+- **New patterns (data pipeline, scheduled jobs):** completeness gating, no existing systems required (with an assumption when none are named), valid plans with every section and no warnings, determinism, no cost figures, regulated-data cautions, and each keyword-driven choice (streaming, warehouse, SFTP, Step Functions; long jobs, container teams, parallel jobs, multi-step runs, file queues, sync history, on-premises VPN).
+- **Long answers:** for every pattern, maximum-length answers and existing-system names longer than 60 characters still produce a valid plan (labels are shortened, never rejected).
+- **Alternative variants:** every alternative of every sample is either drawn (equal to an independent run of the planner with its changes applied, validated with no warnings, Mermaid that parses with and without icons, what-changes lists equal to the computed diff, registry-only citations) or text-only with a reason; drawn variants stay valid across 240 option combinations; "Use this alternative" round-trips and offers the way back; "Not sure" answers survive applying an alternative; providers without alternative specs are not re-run; invalid, incomplete, or no-op changes stay text-only; a provider-supplied variant is stripped; the report embeds each drawn alternative; MCP returns the variants.
 - **Determinism and editability:** the same input always produces the same plan, and changing operations, sensitivity, availability, Region, existing systems, or document type changes the plan.
-- **Client/server parity:** the in-browser planner returns the same validated plan as `POST /api/plan` for all three samples, and the same questions and schema errors for incomplete or malformed input. Planner mode selection is covered for every `VITE_PLANNER` / dev / production combination.
-- **Share links:** round-trip for all three samples; empty, garbled, truncated, tampered, oversized, and compression-bomb links are rejected safely, as are schema-invalid payloads (unknown enums, Regions, keys, wrong types, over-long text).
+- **Client/server parity:** the in-browser planner returns the same validated plan as `POST /api/plan` for all five samples, and the same questions and schema errors for incomplete or malformed input. Planner mode selection is covered for every `VITE_PLANNER` / dev / production combination.
+- **Share links:** round-trip for all five samples, and after "Use this alternative"; empty, garbled, truncated, tampered, oversized, and compression-bomb links are rejected safely, as are schema-invalid payloads (unknown enums, Regions, keys, wrong types, over-long text).
 - **Markdown report:** every section is present for every sample; the Mermaid block equals the generated Mermaid; every URL is a registry source (or the share link); no dollar figures; Markdown, HTML, and link syntax in user or provider text is escaped so it can't change the document structure.
 - **Icons:** every catalog service maps to a vendored icon file (and nothing extra is vendored); icon bodies contain no scripts, images, or external references; icon-mode Mermaid parses for every sample, falls back to plain shapes where there is no icon, and keeps hostile labels contained.
-- **MCP server:** spun up in-process (SDK in-memory transport) and as a stdio child process through `bin/aws-arch-mcp.mjs`. Every tool is called: `plan_architecture` and `export_report` equal the website's plan, Mermaid, and report for all three samples; incomplete input returns questions and no plan; invalid input, wrong types, and unknown tools return tool errors and the server keeps working; "Not sure" answers become the documented defaults and assumptions; every cited source id exists in the registry; unknown keys are reported; the tool list and input schemas are snapshot-tested, and the descriptions carry the ask-don't-invent, not-production-ready, no-cost-figures, and cite-only-returned-sources rules.
+- **MCP server:** spun up in-process (SDK in-memory transport) and as a stdio child process through `bin/aws-arch-mcp.mjs`. Every tool is called: `plan_architecture` and `export_report` equal the website's plan, Mermaid, and report for all five samples, including the alternatives' variants; incomplete input returns questions and no plan; invalid input, wrong types, and unknown tools return tool errors and the server keeps working; "Not sure" answers become the documented defaults and assumptions; every cited source id exists in the registry; unknown keys are reported; the tool list and input schemas are snapshot-tested, and the descriptions carry the ask-don't-invent, not-production-ready, no-cost-figures, and cite-only-returned-sources rules.
 - **CLI:** every subcommand runs as a child process (`bin/aws-arch-plan.mjs`): plans and reports equal the website's for the samples, stdin and file input, all three output formats, exit code 2 with questions on stderr for incomplete input, exit code 1 for invalid values, bad JSON, missing files, unknown formats, commands, and options.
 - **Core API:** `shared/core.ts` returns the same plan and the same report (including a share link that decodes back to the requirements) as the website's code path.
 - **No secrets in the bundle:** a real `vite build` is checked for the Anthropic SDK, `ANTHROPIC_API_KEY`, the Anthropic API host, and the live provider's prompt.
 
-`npm run e2e` (`scripts/e2e-screenshots.mjs`) drives Chromium through `playwright-core` against a running instance (`E2E_URL`, default the dev server). With `E2E_EXPECT_PLANNER=local` it also asserts the planner badge and that no `/api` request is made. It checks the start panel and that a sample click generates a plan with no extra click; loads each sample and checks the service icons render; checks every summary-bar jump (mouse and keyboard) and arrow-key tab navigation; answers "Not sure" to every allowed question and checks the six assumptions, their Edit links, the confidential-by-default diagram, the report, and the share link; at 390 px checks the pinned action bar, the collapse-and-scroll after generating, focus on the plan heading, the readable sideways-scrolling diagram, Edit re-opening the form, and that the bar never covers content; edits requirements and regenerates, copies a share link and opens it in a fresh browser context (same plan), reloads to confirm the autosave, downloads the Markdown report and checks its sections, exports the SVG and confirms the icons are embedded inline, checks a tampered link, the clipboard fallback, and blocked `localStorage`, checks the follow-up-question path and guardrails, asserts no request leaves the app's origin, repeats the share-link round trip, autosave reload, report download, and SVG export at 1024 and 390 px, checks for horizontal overflow at 1440, 1024, and 390 px, fails on console errors, and writes screenshots to `docs/screenshots/`. It uses a locally installed Playwright Chromium build (revision 1243, matching `playwright-core@1.63.0`); run `npx playwright@1.63.0 install chromium` if you do not have one.
+`npm run e2e` (`scripts/e2e-screenshots.mjs`) drives Chromium through `playwright-core` against a running instance (`E2E_URL`, default the dev server). With `E2E_EXPECT_PLANNER=local` it also asserts the planner badge and that no `/api` request is made. It checks the start panel and that a sample click generates a plan with no extra click; loads each of the five samples and checks the service icons render, including the new services (Quick Sight, EventBridge Scheduler, Athena, Glue, Redshift Serverless, Data Firehose); switches the diagram to an alternative and checks the toolbar label, the what-changes lists, the exported SVG, Back to recommended, View its diagram from the Alternatives tab, Use this alternative (answer written into the form, plan regenerated, way back offered, share link reopens it, report includes the alternatives), and the text-only notes; checks the switch at 1024 and 390 px without overflow; checks every summary-bar jump (mouse and keyboard) and arrow-key tab navigation; answers "Not sure" to every allowed question and checks the six assumptions, their Edit links, the confidential-by-default diagram, the report, and the share link; at 390 px checks the pinned action bar, the collapse-and-scroll after generating, focus on the plan heading, the readable sideways-scrolling diagram, Edit re-opening the form, and that the bar never covers content; edits requirements and regenerates, copies a share link and opens it in a fresh browser context (same plan), reloads to confirm the autosave, downloads the Markdown report and checks its sections, exports the SVG and confirms the icons are embedded inline, checks a tampered link, the clipboard fallback, and blocked `localStorage`, checks the follow-up-question path and guardrails, asserts no request leaves the app's origin, repeats the share-link round trip, autosave reload, report download, and SVG export at 1024 and 390 px, checks for horizontal overflow at 1440, 1024, and 390 px, fails on console errors, and writes screenshots to `docs/screenshots/`. It uses a locally installed Playwright Chromium build (revision 1243, matching `playwright-core@1.63.0`); run `npx playwright@1.63.0 install chromium` if you do not have one.
 
 ### Continuous integration
 
@@ -256,8 +266,13 @@ cp .env.example .env    # then set MODEL_PROVIDER=anthropic and ANTHROPIC_API_KE
 ## Supported scope
 
 - AWS only, single-Region designs (Multi-AZ where availability calls for it).
-- Three reviewed demo patterns: web application, integration between existing systems, AI knowledge assistant.
-- 41 catalog services across edge, compute, data, integration, AI, security, operations, and networking.
+- Five reviewed demo patterns:
+  - **Web application**: CloudFront + S3 front end; API Gateway + Lambda + DynamoDB, or ALB + ECS Fargate + RDS/Aurora for container teams.
+  - **Integration between existing systems**: webhook or SFTP intake, EventBridge, SQS with a dead-letter queue, Lambda (plus Step Functions for workflows or high availability), Site-to-Site VPN for on-premises targets.
+  - **AI knowledge assistant**: Bedrock Knowledge Bases with OpenSearch Serverless, a Bedrock model, Textract for scanned documents.
+  - **Data pipeline and analytics** ("Collecting data for reports and dashboards"): sources export into an S3 raw zone, Glue jobs and the Glue Data Catalog write an S3 curated zone, Athena queries it, Quick Sight dashboards, started by EventBridge Scheduler, SNS alerts on failure. Data Firehose when data must arrive continuously, Transfer Family for SFTP drops, Step Functions for high availability or workflows, Redshift Serverless when a data warehouse is asked for. Alternatives: streaming vs batch loads, warehouse vs query in place.
+  - **Scheduled and batch jobs** ("Jobs that run on a schedule"): EventBridge Scheduler starts a Lambda job (an ECS Fargate task in a VPC for jobs longer than 15 minutes or teams that use containers, AWS Batch for many parallel jobs), an SQS dead-letter queue, S3 output, SNS notifications, Secrets Manager for existing-system credentials; Step Functions for multi-step runs, an SQS file queue for incoming files, DynamoDB run history for syncs, Site-to-Site VPN for on-premises systems. Alternatives: Fargate vs Lambda, AWS Batch vs one task, with or without Step Functions.
+- 46 catalog services across edge, compute, data, integration, AI, security, operations, and networking.
 - Requirement options: 14 commercial Regions; usage low, moderate, high, spiky; sensitivity public, internal, confidential, regulated; availability best effort, business hours, high, mission critical; budget minimal, moderate, flexible; operations small team, ops team, containers. Each of these six questions also accepts "Not sure" (see the defaults table above).
 
 ## Limitations
@@ -266,13 +281,14 @@ cp .env.example .env    # then set MODEL_PROVIDER=anthropic and ANTHROPIC_API_KE
 - **No cost estimates.** Only cost drivers and relative tradeoffs. Use AWS Pricing Calculator with your own numbers.
 - **No compliance determination.** Regulated data and compliance keywords produce cautions, not answers.
 - **No disaster-recovery design.** Mission-critical workloads are flagged; multi-Region DR is out of scope.
-- **Demo mode is template-based.** It recognises a few keywords in free text (on-premises, SFTP/CSV, schedules, workflows, scanned documents, common SaaS names) and otherwise relies on the structured answers. Anything outside the three patterns gets a question rather than a design.
+- **Demo mode is template-based.** It recognises a few keywords in free text (on-premises, SFTP/CSV, schedules, workflows, scanned documents, common SaaS names, real-time or streaming data, data warehouse, long-running or parallel jobs, syncs, incoming files) and otherwise relies on the structured answers. It does not guess the kind of system from the description. Anything outside the five patterns gets a question rather than a design.
 - **Region and model availability are not checked.** The plan states the assumption and asks you to confirm service and Amazon Bedrock model availability in your Region.
 - **Citations point to overview pages.** Sources support the general practice cited, not every detail of your specific design.
-- **Source links can change.** URLs were verified on 2026-10-01; AWS may move pages later.
+- **Source links can change.** URLs were verified on 2026-10-01 (the five added with the new patterns on 2026-10-21); AWS may move pages later.
+- **Not every alternative has a diagram.** Only alternatives the planner can produce from a different answer are drawn; the others are text-only and say why. Some choices are expressed as a sentence added to "Anything else we should know?", which you can edit or remove like any other answer.
 - **Diagram layout is automatic.** Large plans can be tall; use "Actual size" and scroll, or export the SVG.
 - **No accounts or server-side storage.** Requirements autosave only in your browser. Share links hold the requirements, not the generated plan; opening one regenerates the plan, so a link opened against a newer version of the app may produce a different plan.
-- **Some icons are the parent service's icon.** The icon package has no separate icon for ECS on Fargate, Application Load Balancer, Amplify Hosting, Bedrock Knowledge Bases, OpenSearch Serverless, or Q Business, so their parent service's icon is used (listed in the NOTICE).
+- **Some icons are the parent service's icon.** The icon package has no separate icon for ECS on Fargate, Application Load Balancer, Amplify Hosting, Bedrock Knowledge Bases, OpenSearch Serverless, or Q Business, so their parent service's icon is used (listed in the NOTICE). The same applies to Redshift Serverless (Amazon Redshift), Quick Sight (Amazon Quick), and EventBridge Scheduler (Amazon EventBridge).
 - **The report's diagram has no icons.** It uses the portable Mermaid so it renders on GitHub and other Mermaid viewers. Use **Export SVG** for the diagram with icons.
 - **The deployed site is demo-only.** The public Vercel site runs only the rules-based demo planner in your browser. The live Claude provider needs the local server and your own API key; it is not hosted.
 - **The MCP server and CLI are local and demo-only.** They run on your machine over stdio or the command line, use only the rules-based demo planner (never the live Claude provider), and are not hosted anywhere. They need a clone and `npm install`; the package is not published to npm.
@@ -291,8 +307,9 @@ shared/            Logic shared by API, UI, and tests (browser-safe: no Node-onl
   demoProvider.ts  Deterministic demo provider (templates + rules)
   validate.ts      Plan validation: schema, diagram integrity, catalog, citations
   mermaid.ts       Mermaid generation from validated data, with label sanitizing
-  service.ts       Pipeline: schema check -> completeness -> guardrails -> "Not sure" defaults -> provider -> validation -> Mermaid
-  scenarios.ts     The three sample scenarios
+  service.ts       Pipeline: schema check -> completeness -> guardrails -> "Not sure" defaults -> provider -> validation -> Mermaid -> alternative variants
+  variants.ts      Alternatives as validated variants: apply changes, re-plan, validate, diff
+  scenarios.ts     The five sample scenarios
   share.ts         Share-link encoding and strict, size-limited decoding
   report.ts        Markdown design document from a validated plan, with escaping
   awsIcons.ts      Catalog-to-icon mapping and SVG-to-icon-pack conversion
