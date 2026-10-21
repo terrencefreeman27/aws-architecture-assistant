@@ -84,9 +84,9 @@ describe('shared core API', () => {
   });
 
   it('exposes samples and flags unknown keys', () => {
-    expect(listSamples().map((s) => s.id)).toEqual(['web-app', 'integration', 'ai-assistant']);
+    expect(listSamples().map((s) => s.id)).toEqual(['web-app', 'integration', 'ai-assistant', 'data-pipeline', 'scheduled-jobs']);
     expect(getSample('nope')).toBeUndefined();
     expect(unknownRequirementKeys({ description: 'x', usage: 'low' })).toEqual(['usage']);
-    expect(CATALOG.length).toBe(41);
+    expect(CATALOG.length).toBe(46);
   });
 });

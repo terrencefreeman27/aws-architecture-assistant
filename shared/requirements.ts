@@ -23,14 +23,14 @@ export const FIELD_META: Record<RequirementField, FieldMeta> = {
     short: 'Kind of system',
     term: 'closest pattern',
     question:
-      'Which is closest: a website or app people use, a connection that moves data between systems you already have, or an AI assistant that answers questions from your documents?',
-    why: 'Demo mode builds plans from three reviewed designs, so it needs to know which one fits.',
+      'Which is closest: a website or app people use, a connection that moves data between systems you already have, an AI assistant that answers questions from your documents, collecting data from several places for reports and dashboards, or jobs that run on a schedule (nightly reports, file processing, recurring syncs)?',
+    why: 'Demo mode builds plans from five reviewed designs, so it needs to know which one fits.',
   },
   existingSystems: {
     label: 'Which existing systems does it connect to?',
     short: 'Existing systems',
     question:
-      'For example a CRM, an accounting or ERP system, a database in your own building, or a document store. When moving data between systems, list where the data comes from first.',
+      'For example a CRM, an accounting or ERP system, a database in your own building, or a document store. Separate them with commas. When moving data between systems, list where the data comes from first.',
     why: 'Connections need to know what talks to what, and whether anything runs in your own building rather than online.',
   },
   expectedUsage: {

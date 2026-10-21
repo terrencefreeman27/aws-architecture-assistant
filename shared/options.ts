@@ -31,6 +31,8 @@ const BASE_OPTIONS: Partial<Record<RequirementField, Option[]>> = {
     { value: 'web_app', label: 'A website or web app' },
     { value: 'integration', label: 'Moving data between existing systems' },
     { value: 'ai_assistant', label: 'An AI assistant for our documents' },
+    { value: 'data_pipeline', label: 'Collecting data for reports and dashboards' },
+    { value: 'scheduled_jobs', label: 'Jobs that run on a schedule (reports, file processing, syncs)' },
     { value: 'other', label: 'Something else' },
   ],
   expectedUsage: [

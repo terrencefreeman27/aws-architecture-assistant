@@ -41,7 +41,7 @@ describe('curated source registry', () => {
 });
 
 describe('every citation in generated plans is a real registry entry', () => {
-  it('holds for the three sample scenarios', () => {
+  it('holds for every sample scenario', () => {
     for (const s of SCENARIOS) {
       const ids = citedSourceIds(buildDemoPlan(s.requirements));
       expect(ids.length, s.id).toBeGreaterThan(5);
@@ -64,6 +64,6 @@ describe('every citation in generated plans is a real registry entry', () => {
                 for (const n of plan.nodes) if (n.kind === 'aws') expect(CATALOG.some((c) => c.id === n.serviceId), n.serviceId).toBe(true);
               }
     }
-    expect(plans).toBe(3 * 4 * 4 * 4 * 3 * 3);
+    expect(plans).toBe(SCENARIOS.length * 4 * 4 * 4 * 3 * 3);
   });
 });

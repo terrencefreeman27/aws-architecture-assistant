@@ -68,6 +68,46 @@ export const SCENARIOS: readonly Scenario[] = [
       operationsNotes: '',
     }),
   },
+  {
+    id: 'data-pipeline',
+    name: 'Sales reporting dashboards',
+    blurb: 'Combine store and online sales for manager dashboards.',
+    requirements: RequirementsSchema.parse({
+      description:
+        'Combine the daily sales exports from our store point-of-sale system with orders from our online shop, so managers can see sales by store, product, and week on dashboards.',
+      workloadType: 'data_pipeline',
+      existingSystems: 'Point-of-sale system (CSV exports), Shopify',
+      expectedUsage: 'moderate',
+      usageNotes: 'About 40 stores and 50,000 sales lines a day; 25 managers use the dashboards.',
+      dataSensitivity: 'confidential',
+      region: 'eu-west-1',
+      availability: 'business_hours',
+      recoveryNotes: '',
+      budget: 'moderate',
+      operations: 'small_team',
+      operationsNotes: '',
+    }),
+  },
+  {
+    id: 'scheduled-jobs',
+    name: 'Nightly report job',
+    blurb: 'Build and email a sales report every night.',
+    requirements: RequirementsSchema.parse({
+      description:
+        "Every night, pull the day's orders from our accounting system, build a sales summary report as a PDF, save it, and email managers a link. If the job fails, someone must be told.",
+      workloadType: 'scheduled_jobs',
+      existingSystems: 'NetSuite',
+      expectedUsage: 'low',
+      usageNotes: 'One run per night; about 2,000 orders a day.',
+      dataSensitivity: 'internal',
+      region: 'us-east-1',
+      availability: 'business_hours',
+      recoveryNotes: '',
+      budget: 'minimal',
+      operations: 'small_team',
+      operationsNotes: 'One developer who writes Python scripts today.',
+    }),
+  },
 ];
 
 export function getScenario(id: string): Scenario | undefined {

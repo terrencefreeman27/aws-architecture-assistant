@@ -4,7 +4,7 @@ import { z } from 'zod';
 /* Requirements                                                        */
 /* ------------------------------------------------------------------ */
 
-export const WORKLOAD_TYPES = ['web_app', 'integration', 'ai_assistant', 'other'] as const;
+export const WORKLOAD_TYPES = ['web_app', 'integration', 'ai_assistant', 'data_pipeline', 'scheduled_jobs', 'other'] as const;
 export const USAGE_LEVELS = ['low', 'moderate', 'high', 'spiky'] as const;
 export const SENSITIVITY_LEVELS = ['public', 'internal', 'confidential', 'regulated'] as const;
 export const AVAILABILITY_LEVELS = ['best_effort', 'business_hours', 'high', 'mission_critical'] as const;
